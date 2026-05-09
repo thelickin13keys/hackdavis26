@@ -1,14 +1,9 @@
-"""OSM network extraction for Davis bikeable roads.
-
-Strategy: pull the drivable + cycleable network so we capture roads bikes legally
-share with cars (most of Davis's grid). We exclude motorways/trunk and freeway
-ramps. Each edge becomes a row in the `edges` table with a stable edge_id.
-"""
+"""OSM network extraction + sampling for Davis bikeable roads."""
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterable
 
 import networkx as nx
@@ -16,18 +11,36 @@ import osmnx as ox
 from shapely.geometry import LineString, Point, mapping
 
 from app.config import settings
-from app.db.store import connect, init_db, upsert_edge
+from app.db.store import connect, init_db, upsert_edge, upsert_intersection_meta
 
-# Tags we consider non-bikeable (highway-like, freeway ramps).
 EXCLUDED_HIGHWAY = {"motorway", "motorway_link", "trunk", "trunk_link"}
+
+# Per-sample heading offsets relative to the direction of travel along the edge.
+# 0  = forward (traffic + infrastructure ahead)
+# 90 = right (door zone, parked cars, bike lane stripe, shoulder)
+EDGE_SAMPLE_OFFSETS = (0, 90)
+
+# Intersection samples shoot 4 cardinal directions relative to north.
+INTERSECTION_HEADINGS = (0, 90, 180, 270)
 
 
 @dataclass
 class SamplePoint:
+    """A single edge sample location with one or more headings to fetch."""
+
     edge_id: str
     lat: float
     lon: float
-    heading: float  # bearing along the edge in degrees
+    headings: list[float] = field(default_factory=list)
+
+
+@dataclass
+class IntersectionSample:
+    node_id: int
+    lat: float
+    lon: float
+    degree: int
+    headings: list[float] = field(default_factory=list)
 
 
 def edge_id_for(u: int, v: int, key: int) -> str:
@@ -42,7 +55,7 @@ def _is_bikeable(data: dict) -> bool:
 
 
 def _bearing(a: tuple[float, float], b: tuple[float, float]) -> float:
-    """Return compass bearing (0–360) from a to b given (lon, lat) tuples."""
+    """Compass bearing from a to b (lon, lat tuples)."""
     lon1, lat1 = math.radians(a[0]), math.radians(a[1])
     lon2, lat2 = math.radians(b[0]), math.radians(b[1])
     dlon = lon2 - lon1
@@ -52,19 +65,13 @@ def _bearing(a: tuple[float, float], b: tuple[float, float]) -> float:
 
 
 def download_davis_graph() -> nx.MultiDiGraph:
-    """Download Davis OSM network. Uses 'bike' network type for bike-relevant edges."""
-    bbox = settings.bbox  # (north, south, east, west)
-    # OSMnx 2.x signature: bbox=(left, bottom, right, top) i.e. (west, south, east, north)
-    n, s, e, w = bbox
-    graph = ox.graph_from_bbox(
+    n, s, e, w = settings.bbox
+    return ox.graph_from_bbox(
         bbox=(w, s, e, n),
         network_type="bike",
         simplify=True,
         retain_all=False,
     )
-    # Ensure edges have geometry attribute (OSMnx leaves straight edges without one).
-    graph = ox.utils_graph.get_undirected(graph) if False else graph
-    return graph
 
 
 def _ensure_edge_geometry(graph: nx.MultiDiGraph, u: int, v: int, data: dict) -> LineString:
@@ -77,7 +84,6 @@ def _ensure_edge_geometry(graph: nx.MultiDiGraph, u: int, v: int, data: dict) ->
 
 
 def persist_graph(graph: nx.MultiDiGraph) -> int:
-    """Write all bikeable edges to the DB. Returns the count of edges persisted."""
     init_db(settings.db_path)
     count = 0
     with connect(settings.db_path) as conn:
@@ -113,13 +119,13 @@ def persist_graph(graph: nx.MultiDiGraph) -> int:
 
 
 def sample_points_along_edge(
-    graph: nx.MultiDiGraph, u: int, v: int, key: int, interval_m: float
+    graph: nx.MultiDiGraph,
+    u: int,
+    v: int,
+    key: int,
+    interval_m: float,
+    heading_offsets: tuple[float, ...] = EDGE_SAMPLE_OFFSETS,
 ) -> list[SamplePoint]:
-    """Sample points along an edge at regular intervals.
-
-    Uses Shapely's interpolate on the geographic coords; for Davis (small extent),
-    converting meters → degrees via a flat approximation is sufficient.
-    """
     data = graph.get_edge_data(u, v, key)
     if data is None or not _is_bikeable(data):
         return []
@@ -129,20 +135,15 @@ def sample_points_along_edge(
         return []
 
     eid = edge_id_for(u, v, key)
-    # Place samples at midpoints of equal segments.
     n_samples = max(1, int(round(length_m / interval_m)))
     samples: list[SamplePoint] = []
     for i in range(n_samples):
         frac = (i + 0.5) / n_samples
-        # interpolate uses the LineString's coordinate units (degrees) — convert
-        # length-fraction by walking the line.
         pt: Point = geom.interpolate(frac, normalized=True)
-        # bearing from previous point along the line; use a small offset for direction
         bear_pt = geom.interpolate(min(1.0, frac + 0.01), normalized=True)
-        heading = _bearing((pt.x, pt.y), (bear_pt.x, bear_pt.y))
-        samples.append(
-            SamplePoint(edge_id=eid, lat=pt.y, lon=pt.x, heading=heading)
-        )
+        forward = _bearing((pt.x, pt.y), (bear_pt.x, bear_pt.y))
+        headings = [(forward + off) % 360.0 for off in heading_offsets]
+        samples.append(SamplePoint(edge_id=eid, lat=pt.y, lon=pt.x, headings=headings))
     return samples
 
 
@@ -154,3 +155,41 @@ def all_sample_points(
         if not _is_bikeable(data):
             continue
         yield from sample_points_along_edge(graph, u, v, key, interval)
+
+
+def intersection_samples(
+    graph: nx.MultiDiGraph, min_degree: int = 3
+) -> list[IntersectionSample]:
+    """Find OSM nodes that are 3+ way intersections of bikeable roads.
+
+    Uses the undirected representation so a 4-way intersection isn't double-counted
+    as 8 directed edges.
+    """
+    undirected = graph.to_undirected()
+    init_db(settings.db_path)
+
+    out: list[IntersectionSample] = []
+    with connect(settings.db_path) as conn:
+        for node, data in undirected.nodes(data=True):
+            # Count distinct neighbors via bikeable edges only.
+            neighbors = set()
+            for nbr in undirected.neighbors(node):
+                edge_data = undirected.get_edge_data(node, nbr) or {}
+                if any(_is_bikeable(d) for d in edge_data.values()):
+                    neighbors.add(nbr)
+            if len(neighbors) < min_degree:
+                continue
+            lat = float(data["y"])
+            lon = float(data["x"])
+            degree = len(neighbors)
+            upsert_intersection_meta(conn, node, lat, lon, degree)
+            out.append(
+                IntersectionSample(
+                    node_id=int(node),
+                    lat=lat,
+                    lon=lon,
+                    degree=degree,
+                    headings=list(INTERSECTION_HEADINGS),
+                )
+            )
+    return out

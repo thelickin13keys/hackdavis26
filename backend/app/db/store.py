@@ -19,20 +19,22 @@ CREATE TABLE IF NOT EXISTS edges (
 
 CREATE INDEX IF NOT EXISTS idx_edges_uv ON edges(u, v);
 
+-- One row per (edge, lat, lon) sample location. Each location may have several
+-- images at different headings (stored in images_json) but produces a single
+-- combined safety score from Gemini.
 CREATE TABLE IF NOT EXISTS samples (
     sample_id INTEGER PRIMARY KEY AUTOINCREMENT,
     edge_id TEXT NOT NULL REFERENCES edges(edge_id),
     lat REAL NOT NULL,
     lon REAL NOT NULL,
-    heading REAL,
-    pano_id TEXT,
-    image_path TEXT,
+    images_json TEXT,
     score INTEGER,
+    infrastructure TEXT,
     hazards_json TEXT,
     reasons_json TEXT,
     raw_response_json TEXT,
     scored_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(edge_id, lat, lon, heading)
+    UNIQUE(edge_id, lat, lon)
 );
 
 CREATE INDEX IF NOT EXISTS idx_samples_edge ON samples(edge_id);
@@ -42,6 +44,21 @@ CREATE TABLE IF NOT EXISTS edge_scores (
     mean_score REAL,
     sample_count INTEGER,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Intersection scoring (degree>=3 OSM nodes). Score how scary the intersection
+-- itself is to traverse — distinct from the edge-segment scoring.
+CREATE TABLE IF NOT EXISTS intersections (
+    node_id INTEGER PRIMARY KEY,
+    lat REAL NOT NULL,
+    lon REAL NOT NULL,
+    degree INTEGER NOT NULL,
+    images_json TEXT,
+    score INTEGER,
+    hazards_json TEXT,
+    reasons_json TEXT,
+    raw_response_json TEXT,
+    scored_at TIMESTAMP
 );
 """
 
@@ -95,40 +112,93 @@ def upsert_edge(
     )
 
 
-def insert_sample(
+def upsert_sample(
     conn: sqlite3.Connection,
     edge_id: str,
     lat: float,
     lon: float,
-    heading: float | None,
-    pano_id: str | None,
-    image_path: str | None,
+    images: list[dict],
     score: int | None,
+    infrastructure: str | None,
     hazards: list | None,
     reasons: list | None,
     raw_response: dict | None,
 ) -> int:
+    """Upsert by (edge_id, lat, lon). `images` is a list of {heading, pano_id, image_path}."""
     cur = conn.execute(
         """
-        INSERT OR IGNORE INTO samples
-            (edge_id, lat, lon, heading, pano_id, image_path, score,
+        INSERT INTO samples
+            (edge_id, lat, lon, images_json, score, infrastructure,
              hazards_json, reasons_json, raw_response_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(edge_id, lat, lon) DO UPDATE SET
+            images_json = excluded.images_json,
+            score = excluded.score,
+            infrastructure = excluded.infrastructure,
+            hazards_json = excluded.hazards_json,
+            reasons_json = excluded.reasons_json,
+            raw_response_json = excluded.raw_response_json,
+            scored_at = CURRENT_TIMESTAMP
         """,
         (
             edge_id,
             lat,
             lon,
-            heading,
-            pano_id,
-            image_path,
+            json.dumps(images),
             score,
+            infrastructure,
             json.dumps(hazards) if hazards is not None else None,
             json.dumps(reasons) if reasons is not None else None,
             json.dumps(raw_response) if raw_response is not None else None,
         ),
     )
     return cur.lastrowid or 0
+
+
+def upsert_intersection_meta(
+    conn: sqlite3.Connection, node_id: int, lat: float, lon: float, degree: int
+) -> None:
+    """Insert intersection metadata if missing; preserve existing scoring."""
+    conn.execute(
+        """
+        INSERT INTO intersections (node_id, lat, lon, degree)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(node_id) DO UPDATE SET
+            lat = excluded.lat, lon = excluded.lon, degree = excluded.degree
+        """,
+        (node_id, lat, lon, degree),
+    )
+
+
+def upsert_intersection_score(
+    conn: sqlite3.Connection,
+    node_id: int,
+    images: list[dict],
+    score: int | None,
+    hazards: list | None,
+    reasons: list | None,
+    raw_response: dict | None,
+) -> None:
+    conn.execute(
+        """
+        UPDATE intersections SET
+            images_json = ?,
+            score = ?,
+            hazards_json = ?,
+            reasons_json = ?,
+            raw_response_json = ?,
+            scored_at = CURRENT_TIMESTAMP
+        WHERE node_id = ?
+        """,
+        (
+            json.dumps(images),
+            score,
+            json.dumps(hazards) if hazards is not None else None,
+            json.dumps(reasons) if reasons is not None else None,
+            json.dumps(raw_response) if raw_response is not None else None,
+            node_id,
+        ),
+    )
 
 
 def recompute_edge_scores(conn: sqlite3.Connection) -> int:
@@ -150,6 +220,13 @@ def already_scored_edges(conn: sqlite3.Connection) -> set[str]:
         "SELECT DISTINCT edge_id FROM samples WHERE score IS NOT NULL"
     ).fetchall()
     return {r["edge_id"] for r in rows}
+
+
+def already_scored_intersections(conn: sqlite3.Connection) -> set[int]:
+    rows = conn.execute(
+        "SELECT node_id FROM intersections WHERE score IS NOT NULL"
+    ).fetchall()
+    return {r["node_id"] for r in rows}
 
 
 def fetch_scored_edges(conn: sqlite3.Connection) -> list[dict]:
@@ -177,6 +254,29 @@ def fetch_scored_edges(conn: sqlite3.Connection) -> list[dict]:
     return out
 
 
+def fetch_intersection_scores(conn: sqlite3.Connection) -> dict[int, float]:
+    rows = conn.execute(
+        "SELECT node_id, score FROM intersections WHERE score IS NOT NULL"
+    ).fetchall()
+    return {r["node_id"]: float(r["score"]) for r in rows}
+
+
+def fetch_all_intersections(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute(
+        "SELECT node_id, lat, lon, degree, score FROM intersections"
+    ).fetchall()
+    return [
+        {
+            "node_id": r["node_id"],
+            "lat": r["lat"],
+            "lon": r["lon"],
+            "degree": r["degree"],
+            "score": r["score"],
+        }
+        for r in rows
+    ]
+
+
 def fetch_edge_detail(conn: sqlite3.Connection, edge_id: str) -> dict | None:
     edge = conn.execute(
         """
@@ -191,8 +291,8 @@ def fetch_edge_detail(conn: sqlite3.Connection, edge_id: str) -> dict | None:
         return None
     samples = conn.execute(
         """
-        SELECT sample_id, lat, lon, heading, pano_id, image_path,
-               score, hazards_json, reasons_json
+        SELECT sample_id, lat, lon, images_json, score,
+               infrastructure, hazards_json, reasons_json
         FROM samples WHERE edge_id = ? ORDER BY sample_id
         """,
         (edge_id,),
@@ -210,13 +310,35 @@ def fetch_edge_detail(conn: sqlite3.Connection, edge_id: str) -> dict | None:
                 "sample_id": s["sample_id"],
                 "lat": s["lat"],
                 "lon": s["lon"],
-                "heading": s["heading"],
-                "pano_id": s["pano_id"],
-                "image_path": s["image_path"],
+                "images": json.loads(s["images_json"]) if s["images_json"] else [],
                 "score": s["score"],
+                "infrastructure": s["infrastructure"],
                 "hazards": json.loads(s["hazards_json"]) if s["hazards_json"] else [],
                 "reasons": json.loads(s["reasons_json"]) if s["reasons_json"] else [],
             }
             for s in samples
         ],
+    }
+
+
+def fetch_intersection_detail(conn: sqlite3.Connection, node_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT node_id, lat, lon, degree, images_json, score,
+               hazards_json, reasons_json
+        FROM intersections WHERE node_id = ?
+        """,
+        (node_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "node_id": row["node_id"],
+        "lat": row["lat"],
+        "lon": row["lon"],
+        "degree": row["degree"],
+        "images": json.loads(row["images_json"]) if row["images_json"] else [],
+        "score": row["score"],
+        "hazards": json.loads(row["hazards_json"]) if row["hazards_json"] else [],
+        "reasons": json.loads(row["reasons_json"]) if row["reasons_json"] else [],
     }

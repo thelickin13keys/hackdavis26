@@ -16,6 +16,10 @@ class Settings(BaseSettings):
 
     sample_interval_m: float = 80.0
     safety_lambda: float = 0.5
+    # Penalty added to an edge's safe-cost when entering a scary intersection.
+    # Effective cost addend = intersection_penalty_m × (10 − intersection_score) / 9.
+    # Default: a score-1 intersection adds 60m of "felt distance" to the entering edge.
+    intersection_penalty_m: float = 60.0
 
     db_path: Path = Path("./data/safebike.db")
     image_cache_dir: Path = Path("./data/images")
