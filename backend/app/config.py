@@ -1,0 +1,36 @@
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    google_maps_api_key: str = ""
+    gemini_api_key: str = ""
+
+    davis_bbox_north: float = 38.580
+    davis_bbox_south: float = 38.520
+    davis_bbox_east: float = -121.690
+    davis_bbox_west: float = -121.790
+
+    sample_interval_m: float = 80.0
+    safety_lambda: float = 0.5
+
+    db_path: Path = Path("./data/safebike.db")
+    image_cache_dir: Path = Path("./data/images")
+
+    @property
+    def bbox(self) -> tuple[float, float, float, float]:
+        # (north, south, east, west) — OSMnx convention
+        return (
+            self.davis_bbox_north,
+            self.davis_bbox_south,
+            self.davis_bbox_east,
+            self.davis_bbox_west,
+        )
+
+
+settings = Settings()
+settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+settings.image_cache_dir.mkdir(parents=True, exist_ok=True)
