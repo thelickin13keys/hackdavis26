@@ -6,8 +6,18 @@ export type RouteSegment = {
   id: string;
   level: SafetyLevel;
   points: RoutePoint[];
-  /** Narrative shown in “Why this route” accordion */
+  /** Legacy single-line blurbs (mock routes & fallback splits) */
   reason?: string;
+  /** One sanitized line per Directions step merged here (accordion) */
+  stressNotes?: string[];
+};
+
+/** Turn-by-turn from Mapbox Directions (cycling steps) — shown after “Start route”. */
+export type NavigationCue = {
+  id: string;
+  instruction: string;
+  distanceM: number;
+  durationSec: number;
 };
 
 export type Route = {
@@ -18,6 +28,7 @@ export type Route = {
   distanceMi: number;
   score: number; // 0-100
   segments: RouteSegment[];
+  navigationCues?: NavigationCue[];
 };
 
 export type StreetAnalysis = {

@@ -9,8 +9,9 @@ import { Navigation, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { MapboxSearch } from "./mapbox-search";
+import { DirectionsList } from "./directions-list";
 import { RouteCard } from "./route-card";
-import type { Route, RoutePoint } from "./types";
+import type { NavigationCue, Route, RoutePoint } from "./types";
 
 type SidePanelProps = {
   routes: Route[];
@@ -27,6 +28,9 @@ type SidePanelProps = {
   onStartRoute: () => void;
   expanded: boolean;
   onToggleExpanded: () => void;
+  navigationActive: boolean;
+  navigationCues: NavigationCue[];
+  onExitNavigation: () => void;
 };
 
 /**
@@ -51,6 +55,9 @@ export function SidePanel({
   onStartRoute,
   expanded,
   onToggleExpanded,
+  navigationActive,
+  navigationCues,
+  onExitNavigation,
 }: SidePanelProps) {
   const selected =
     routes.find((r) => r.id === selectedRouteId) ?? routes[0];
@@ -132,6 +139,28 @@ export function SidePanel({
           />
         </div>
       </div>
+
+      {navigationActive ? (
+        <div className="shrink-0 border-b border-[#333] lg:hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <p className="text-[16px] font-semibold tracking-tight text-white">
+              Directions
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onExitNavigation}
+              className="h-8 rounded-[8px] border-[#424242] bg-[#161616] text-[13px] text-white hover:bg-[#222]"
+            >
+              Summary
+            </Button>
+          </div>
+          <div className="max-h-[34dvh] overflow-y-auto px-4 pb-3">
+            <DirectionsList cues={navigationCues} />
+          </div>
+        </div>
+      ) : null}
 
       {/* Cautious mode */}
       <div className="mx-4 mt-3 flex shrink-0 items-center justify-between gap-3 rounded-[10px] border border-[#333] bg-[#0f0f0f] px-3 py-2.5 lg:mx-6">

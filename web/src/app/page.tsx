@@ -37,6 +37,7 @@ export default function Home() {
   const [selectedRouteId, setSelectedRouteId] = useState(ROUTES[0].id);
   const [cautiousMode, setCautiousMode] = useState(true);
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [navigationActive, setNavigationActive] = useState(false);
 
   useEffect(() => {
     if (!mounted) return;
@@ -46,6 +47,7 @@ export default function Home() {
       .then((nextRoutes) => {
         if (cancelled) return;
         setRoutes(nextRoutes);
+        setNavigationActive(false);
         setSelectedRouteId((current) =>
           nextRoutes.some((route) => route.id === current)
             ? current
@@ -84,6 +86,7 @@ export default function Home() {
   );
 
   const select = (id: string) => {
+    setNavigationActive(false);
     setSelectedRouteId(id);
     const r = routes.find((x) => x.id === id);
     if (r) {
@@ -95,6 +98,7 @@ export default function Home() {
 
   const handleOriginSelect = useCallback(
     ({ label, point }: { label: string; point: RoutePoint }) => {
+      setNavigationActive(false);
       setOrigin(label);
       setOriginPoint(point);
       map?.flyTo({ center: [point.lng, point.lat], zoom: 14.5 });
@@ -104,6 +108,7 @@ export default function Home() {
 
   const handleDestinationSelect = useCallback(
     ({ label, point }: { label: string; point: RoutePoint }) => {
+      setNavigationActive(false);
       setDestination(label);
       setDestinationPoint(point);
       map?.flyTo({ center: [point.lng, point.lat], zoom: 14.5 });
@@ -141,22 +146,32 @@ export default function Home() {
         onDestinationSelect={handleDestinationSelect}
         cautiousMode={cautiousMode}
         onCautiousModeChange={(next) => {
-          setCautiousMode(next);
           if (next) {
             const safest = [...routes].sort((a, b) => b.score - a.score)[0];
+            setNavigationActive(false);
             setSelectedRouteId(safest.id);
           }
+          setCautiousMode(next);
         }}
         onStartRoute={() => {
+          setNavigationActive(true);
           toast("Starting route", {
             description: `Heading to ${destination} via ${activeRoute.name.toLowerCase()}.`,
           });
         }}
         expanded={sheetExpanded}
         onToggleExpanded={() => setSheetExpanded((v) => !v)}
+        navigationActive={navigationActive}
+        navigationCues={activeRoute.navigationCues ?? []}
+        onExitNavigation={() => setNavigationActive(false)}
       />
 
-      <RouteReasoningPanel route={activeRoute} routes={visibleRoutes} />
+      <RouteReasoningPanel
+        route={activeRoute}
+        routes={visibleRoutes}
+        showDirections={navigationActive}
+        onBackFromDirections={() => setNavigationActive(false)}
+      />
     </main>
   );
 }
