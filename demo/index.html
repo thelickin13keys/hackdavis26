@@ -150,10 +150,15 @@
     <div class="spacer"></div>
     <div class="controls">
       <select id="presets">
+        <option value="8th-olive" selected>8th & F → 965 Olive Dr</option>
         <option value="mu-coop">UC Davis MU → Davis Co-op</option>
         <option value="silo-arboretum">Silo → Arboretum loop</option>
         <option value="north-south">North Davis → Downtown</option>
         <option value="custom">Custom (click two map points)</option>
+      </select>
+      <select id="weight">
+        <option value="cost_safe" selected>Safest</option>
+        <option value="cost_fast">Fastest</option>
       </select>
       <select id="speed">
         <option value="2.5">0.5x</option>
@@ -233,6 +238,8 @@ if (!mapboxgl.accessToken) {
 
 // Davis-area presets. Adjust if your scored data covers a different area.
 const PRESETS = {
+  // Matches the default route in web/ (mock-data.ts ORIGIN/DESTINATION).
+  "8th-olive":       { from: [-121.7400, 38.5495], to: [-121.73996, 38.540026] },
   "mu-coop":         { from: [-121.7494, 38.5421], to: [-121.7421, 38.5485] },
   "silo-arboretum":  { from: [-121.7530, 38.5400], to: [-121.7560, 38.5360] },
   "north-south":     { from: [-121.7400, 38.5650], to: [-121.7390, 38.5440] },
@@ -584,10 +591,11 @@ async function startTour() {
 
   if (activeStream) activeStream.close();
 
+  const weightSel = document.getElementById("weight").value;
   const params = new URLSearchParams({
     start_lat: from[1], start_lon: from[0],
     end_lat: to[1],   end_lon: to[0],
-    weight: "cost_safe",
+    weight: weightSel,
     time_scale: speedSel,
   });
   const es = new EventSource(`${apiBase}/demo/walk?${params.toString()}`);

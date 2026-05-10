@@ -237,6 +237,36 @@ export function safepathImageUrl(path: string): string {
   return `${API_BASE}/image?path=${encodeURIComponent(path)}`;
 }
 
+// ---------- SSE event payloads from /demo/walk ----------------------------
+
+export type WalkStartEvent = {
+  weight: "cost_safe" | "cost_fast";
+  edge_count: number;
+  summary: RouteSummary;
+};
+
+export type WalkStepEvent = {
+  i: number;
+  edge_id: string;
+  name: string | null;
+  length_m: number;
+  score: number | null;
+  intersection_score: number | null;
+  intersection_source: "gemini" | "heuristic" | null;
+  geometry: { type: "LineString"; coordinates: [number, number][] };
+  samples: EdgeSample[];
+  duration_ms: number;
+};
+
+export type WalkAlertEvent = {
+  kind: "scary_intersection" | "hazard" | "low_score";
+  level: "danger" | "warning";
+  title: string;
+  summary?: string;
+};
+
+export type WalkDoneEvent = { summary: RouteSummary };
+
 /** URL for the SSE demo-walk stream. Frontends can subscribe with EventSource. */
 export function safepathDemoWalkUrl(
   start: { lat: number; lng: number },

@@ -9,6 +9,11 @@ import {
 } from "@/components/ui/accordion";
 import { DirectionsList } from "./directions-list";
 import { sanitizeDirectionsLine } from "./mapbox-route-steps";
+import {
+  StreetViewTourCard,
+  type SeenHazard,
+  type StreetViewTourState,
+} from "./street-view-tour";
 import type { Route, RoutePoint, SafetyLevel } from "./types";
 import {
   letterGrade,
@@ -17,54 +22,6 @@ import {
   scoreFromSegments,
 } from "./safety";
 import { segmentNarrative } from "./segment-copy";
-
-const MAPBOX_TOKEN =
-  process.env.NEXT_PUBLIC_MAPBOX_API_KEY ??
-  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ??
-  "";
-
-function useLocationPhoto(
-  destinationName: string | undefined,
-  destinationPoint: RoutePoint | undefined,
-): { src: string | null; isMap: boolean } {
-  const [wikiPhoto, setWikiPhoto] = useState<string | null | undefined>(
-    undefined,
-  );
-
-  useEffect(() => {
-    if (!destinationName) {
-      setWikiPhoto(null);
-      return;
-    }
-    setWikiPhoto(undefined);
-    const controller = new AbortController();
-    const query = encodeURIComponent(destinationName.trim());
-    fetch(
-      `https://en.wikipedia.org/api/rest_v1/page/summary/${query}`,
-      { signal: controller.signal },
-    )
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        const src =
-          data?.originalimage?.source ??
-          data?.thumbnail?.source ??
-          null;
-        setWikiPhoto(src);
-      })
-      .catch(() => setWikiPhoto(null));
-    return () => controller.abort();
-  }, [destinationName]);
-
-  const mapSrc =
-    destinationPoint && MAPBOX_TOKEN
-      ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/pin-s-marker+e05252(${destinationPoint.lng},${destinationPoint.lat})/${destinationPoint.lng},${destinationPoint.lat},15,0/360x160@2x?access_token=${MAPBOX_TOKEN}`
-      : null;
-
-  if (wikiPhoto === undefined) return { src: null, isMap: false };
-  if (wikiPhoto) return { src: wikiPhoto, isMap: false };
-  return { src: mapSrc, isMap: true };
-}
-
 
 type RouteReasoningPanelProps = {
   route: Route;
@@ -75,6 +32,9 @@ type RouteReasoningPanelProps = {
   destinationPoint?: RoutePoint;
   destinationName?: string;
   isLoading?: boolean;
+  /** Street-View tour state. Hoisted in the page so the same hook drives
+   *  both the inline preview here and the cyclist marker on the map. */
+  tour?: StreetViewTourState;
 };
 
 const panelShellClass =
@@ -89,6 +49,7 @@ export function RouteReasoningPanel({
   destinationPoint,
   destinationName,
   isLoading = false,
+  tour,
 }: RouteReasoningPanelProps) {
   if (showDirections) {
     return (
@@ -165,11 +126,6 @@ export function RouteReasoningPanel({
   const cautionFactors = factors.filter((f) => f.level === "caution");
   const dangerFactors = factors.filter((f) => f.level === "danger");
 
-  const { src: destImageUrl, isMap: destImageIsMap } = useLocationPhoto(
-    destinationName,
-    destinationPoint,
-  );
-
   return (
     <aside className={panelShellClass}>
       {/* ── Fixed header card ── */}
@@ -198,26 +154,10 @@ export function RouteReasoningPanel({
           <span className="text-[#9a9a9a]">{route.distanceMi.toFixed(1)} mi</span>
         </div>
 
-        {/* Destination photo */}
-        {destImageUrl ? (
-          <div className="overflow-hidden rounded-[12px] border border-[#2a2a2a]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={destImageUrl}
-              alt={destinationName ?? "Destination"}
-              width={360}
-              height={160}
-              className="w-full object-cover"
-              style={{ maxHeight: 160 }}
-              loading="lazy"
-            />
-            {destinationName ? (
-              <p className="px-3 py-1.5 text-[11px] text-[#6a6a6a]">
-              {"📍" + destinationName}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        {/* Ride preview — replaces the previous static destination image.
+            Shows the agent's Street-View as it walks the route; idle state
+            holds a "Preview ride" play button. */}
+        {tour ? <StreetViewTourCard tour={tour} /> : null}
       </div>
 
       {/* ── Scrollable accordion: Safe / Caution / Avoid only ── */}
@@ -250,6 +190,7 @@ export function RouteReasoningPanel({
             toneClass="text-[#E83B3B]"
             items={dangerList}
             factors={dangerFactors}
+            hazards={tour?.seenHazards ?? []}
           />
         </Accordion>
       </div>
@@ -456,6 +397,7 @@ function ReasonAccordionRow({
   toneClass,
   items,
   factors = [],
+  hazards = [],
 }: {
   value: string;
   label: string;
@@ -463,8 +405,18 @@ function ReasonAccordionRow({
   toneClass: string;
   items: string[];
   factors?: DecisionFactor[];
+  /** Hazard sightings from the agent walk — used purely as a pool of route
+   *  preview images to attach to existing factor/item entries. Hazards
+   *  without a paired entry are dropped; we never inflate the count or
+   *  surface a hazard as its own bullet. */
+  hazards?: SeenHazard[];
 }) {
   const isEmpty = items.length === 0 && factors.length === 0;
+
+  // Round-robin: zip seen hazards onto factor entries first, then onto text
+  // items. Once we run out of hazards, remaining entries render text-only.
+  const factorImages = hazards.slice(0, factors.length);
+  const itemImages = hazards.slice(factors.length, factors.length + items.length);
 
   return (
     <AccordionItem
@@ -490,25 +442,60 @@ function ReasonAccordionRow({
           <div className="pl-1 pr-0.5">
             <ul className="list-none space-y-2">
               {factors.map((f, i) => (
-                <li
+                <ReasonEntry
                   key={`factor-${value}-${i}`}
-                  className="min-w-0 rounded-lg bg-[#1f1f1f]/80 px-3 py-2 leading-snug break-words text-[12px] text-[#d0d0d0]"
-                >
-                  {f.detail}
-                </li>
+                  text={f.detail}
+                  hazard={factorImages[i]}
+                  toneClass={toneClass}
+                />
               ))}
               {items.map((text, i) => (
-                <li
+                <ReasonEntry
                   key={`${value}-${i}`}
-                  className="min-w-0 rounded-lg bg-[#1f1f1f]/80 px-3 py-2 leading-snug break-words text-[12px]"
-                >
-                  {text}
-                </li>
+                  text={text}
+                  hazard={itemImages[i]}
+                  toneClass={toneClass}
+                />
               ))}
             </ul>
           </div>
         )}
       </AccordionContent>
     </AccordionItem>
+  );
+}
+
+function ReasonEntry({
+  text,
+  hazard,
+  toneClass,
+}: {
+  text: string;
+  hazard: SeenHazard | undefined;
+  toneClass: string;
+}) {
+  return (
+    <li className="overflow-hidden rounded-lg bg-[#1f1f1f]/80">
+      {hazard ? (
+        <div className="relative aspect-[16/9] bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={hazard.imageUrl}
+            alt={hazard.type}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+          <span
+            className={`absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${toneClass}`}
+          >
+            {hazard.type.replace(/_/g, " ")}
+            {hazard.severity ? ` · ${hazard.severity}` : ""}
+          </span>
+        </div>
+      ) : null}
+      <div className="px-3 py-2 text-[12px] leading-snug text-[#d0d0d0] break-words">
+        {text}
+      </div>
+    </li>
   );
 }

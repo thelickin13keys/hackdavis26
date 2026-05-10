@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { MapCanvas } from "@/components/safepath/map-canvas";
 import { RouteReasoningPanel } from "@/components/safepath/route-reasoning-panel";
 import { SidePanel } from "@/components/safepath/side-panel";
+import { useStreetViewTour } from "@/components/safepath/street-view-tour";
 import { DESTINATION, ORIGIN, ROUTES } from "@/components/safepath/mock-data";
 import { fetchMapboxBikeRoutes } from "@/components/safepath/mapbox-routes";
 import { fetchSafePathBikeRoutes } from "@/components/safepath/safepath-routes";
@@ -68,6 +69,7 @@ export default function Home() {
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [navigationActive, setNavigationActive] = useState(false);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(true);
+  const [cyclistPosition, setCyclistPosition] = useState<RoutePoint | null>(null);
 
   useEffect(() => {
     if (!mounted) return;
@@ -181,6 +183,19 @@ export default function Home() {
     setSelectedRouteId(id);
   };
 
+  // Street-View "agent walking" tour. We hoist the hook here (rather than
+  // owning it inside the panel) so the cyclist marker can render on the map
+  // canvas while the panel re-uses the same state for the inline UI.
+  const tour = useStreetViewTour({
+    origin: originPoint,
+    destination: destinationPoint,
+    weight: /fast/i.test(activeRoute.id) ? "cost_fast" : "cost_safe",
+    onCyclistPositionChange: setCyclistPosition,
+    onAlert: (a) => {
+      toast(a.title, { description: a.summary });
+    },
+  });
+
   const handleOriginSelect = useCallback(
     ({ label, point }: { label: string; point: RoutePoint }) => {
       setNavigationActive(false);
@@ -217,6 +232,7 @@ export default function Home() {
           inactiveRoutes={inactiveRoutes}
           onSelectRoute={select}
           onMapReady={setMap}
+          cyclistPosition={cyclistPosition}
         />
       </div>
 
@@ -259,6 +275,7 @@ export default function Home() {
         destinationPoint={destinationPoint}
         destinationName={confirmedDestName}
         isLoading={isLoadingRoutes}
+        tour={tour}
       />
     </main>
   );
