@@ -20,6 +20,32 @@ export type NavigationCue = {
   durationSec: number;
 };
 
+export type RouteIntel = {
+  mapbox: {
+    lines: string[];
+    scorePenalty: number;
+    peakPostedMph: number | null;
+    motorwayTouches: number;
+    tunnelTouches: number;
+    congestion?: {
+      lowPct: number;
+      moderatePct: number;
+      heavyPct: number;
+      severePct: number;
+      available: boolean;
+    };
+  };
+  conditions?: {
+    lines: string[];
+    attribution: string;
+    items?: Array<{
+      hint: string;
+      safety: "safe" | "caution" | "danger";
+      detail: string;
+    }>;
+  };
+};
+
 export type Route = {
   id: string;
   name: string;
@@ -29,7 +55,9 @@ export type Route = {
   score: number; // 0-100
   segments: RouteSegment[];
   navigationCues?: NavigationCue[];
+  intel?: RouteIntel;
 };
+
 
 export type StreetAnalysis = {
   id: string;

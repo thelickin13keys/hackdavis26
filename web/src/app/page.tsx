@@ -46,13 +46,26 @@ export default function Home() {
     fetchMapboxBikeRoutes(originPoint, destinationPoint)
       .then((nextRoutes) => {
         if (cancelled) return;
-        setRoutes(nextRoutes);
+        const sorted = [...nextRoutes].sort((a, b) => b.score - a.score);
+
+        // Assign names by role, not by position
+        const fastestId = [...sorted].sort((a, b) => a.durationMin - b.durationMin)[0]!.id;
+        const safestId = sorted[0]!.id;
+        const renamed = sorted.map((r) => {
+          let name: string;
+          if (r.id === safestId) name = "Safest";
+          else if (r.id === fastestId) name = "Fastest";
+          else name = "Balanced";
+          return { ...r, name };
+        });
+
+        // Pad any unfilled slots with mock routes (by ID), cap at 10
+        const realIds = new Set(renamed.map((r) => r.id));
+        const mockPad = ROUTES.filter((m) => !realIds.has(m.id));
+        const merged = [...renamed, ...mockPad].slice(0, 10);
+        setRoutes(merged);
         setNavigationActive(false);
-        setSelectedRouteId((current) =>
-          nextRoutes.some((route) => route.id === current)
-            ? current
-            : nextRoutes[0].id,
-        );
+        setSelectedRouteId(merged[0]!.id);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -70,10 +83,7 @@ export default function Home() {
     };
   }, [mounted, originPoint, destinationPoint]);
 
-  const visibleRoutes = useMemo(() => {
-    if (!cautiousMode) return routes;
-    return routes.filter((r) => r.score >= 41);
-  }, [cautiousMode, routes]);
+  const visibleRoutes = useMemo(() => routes, [routes]);
 
   const activeRoute = useMemo(
     () =>
@@ -88,12 +98,6 @@ export default function Home() {
   const select = (id: string) => {
     setNavigationActive(false);
     setSelectedRouteId(id);
-    const r = routes.find((x) => x.id === id);
-    if (r) {
-      toast(`${r.name} selected`, {
-        description: `${r.distanceMi.toFixed(1)} mi · ${r.durationMin} min`,
-      });
-    }
   };
 
   const handleOriginSelect = useCallback(
@@ -171,6 +175,8 @@ export default function Home() {
         routes={visibleRoutes}
         showDirections={navigationActive}
         onBackFromDirections={() => setNavigationActive(false)}
+        destinationPoint={destinationPoint}
+        destinationName={destination}
       />
     </main>
   );

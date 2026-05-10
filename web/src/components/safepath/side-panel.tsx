@@ -3,6 +3,7 @@
 import {
   useRef,
   useState,
+  useMemo,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Navigation, Shield } from "lucide-react";
@@ -12,6 +13,14 @@ import { MapboxSearch } from "./mapbox-search";
 import { DirectionsList } from "./directions-list";
 import { RouteCard } from "./route-card";
 import type { NavigationCue, Route, RoutePoint } from "./types";
+
+type SortKey = "safety" | "time" | "distance";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "safety",   label: "Safety"   },
+  { key: "time",     label: "Time"     },
+  { key: "distance", label: "Distance" },
+];
 
 type SidePanelProps = {
   routes: Route[];
@@ -61,7 +70,17 @@ export function SidePanel({
 }: SidePanelProps) {
   const selected =
     routes.find((r) => r.id === selectedRouteId) ?? routes[0];
-  const fastestMin = Math.min(...routes.map((r) => r.durationMin));
+
+  const [sortBy, setSortBy] = useState<SortKey>("safety");
+
+  const sortedRoutes = useMemo(() => {
+    return [...routes].sort((a, b) => {
+      if (sortBy === "safety")   return b.score - a.score;
+      if (sortBy === "time")     return a.durationMin - b.durationMin;
+      if (sortBy === "distance") return a.distanceMi - b.distanceMi;
+      return 0;
+    });
+  }, [routes, sortBy]);
 
   // Drag-to-expand on mobile.
   const dragStart = useRef<number | null>(null);
@@ -181,15 +200,35 @@ export function SidePanel({
         />
       </div>
 
+      {/* Sort toggle */}
+      <div className="mx-4 mt-3 shrink-0 lg:mx-6">
+        <div className="flex rounded-[8px] border border-[#333] bg-[#0f0f0f] p-0.5">
+          {SORT_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSortBy(key)}
+              className={[
+                "flex-1 rounded-[6px] py-1.5 text-[12px] font-medium transition-colors",
+                sortBy === key
+                  ? "bg-[#2a2a2a] text-white"
+                  : "text-[#6a6a6a] hover:text-[#aaa]",
+              ].join(" ")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Route cards (scrollable) */}
       <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 pt-3 pb-3 scrollbar-hide lg:px-6">
-        {routes.map((r) => (
+        {sortedRoutes.map((r) => (
           <RouteCard
             key={r.id}
             route={r}
             selected={r.id === selectedRouteId}
             onSelect={() => onSelectRoute(r.id)}
-            fastestMin={fastestMin}
           />
         ))}
       </div>

@@ -9,18 +9,15 @@ type RouteCardProps = {
   route: Route;
   selected: boolean;
   onSelect: () => void;
-  fastestMin: number;
 };
 
 export function RouteCard({
   route,
   selected,
   onSelect,
-  fastestMin,
 }: RouteCardProps) {
   const level = levelFromScore(route.score);
   const s = levelStyles(level);
-  const tradeoff = route.durationMin - fastestMin;
   const segmentWidths = getSegmentWidths(route);
 
   return (
@@ -38,7 +35,6 @@ export function RouteCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="type-h3 text-white">{route.name}</h3>
-          <p className="type-caption mt-0.5 truncate">{route.subtitle}</p>
         </div>
         <SafetyScore score={route.score} />
       </div>
@@ -46,11 +42,6 @@ export function RouteCard({
       <div className="mt-3 flex items-center gap-2 text-[12px]">
         <Clock className="size-3.5 text-[#ababab]" aria-hidden />
         <span className="font-semibold text-white">{route.durationMin} min</span>
-        <span className="text-[#ababab]">
-          {tradeoff === 0
-            ? "fastest"
-            : `+${tradeoff} min vs fastest`}
-        </span>
         <span className="ml-auto text-[#ababab]">
           {route.distanceMi.toFixed(1)} mi
         </span>

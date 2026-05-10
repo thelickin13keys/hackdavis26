@@ -7,15 +7,15 @@ const SAFE: readonly string[] = [
 ];
 
 const CAUTION: readonly string[] = [
-  "Shared lane or higher vehicle volume — stay visible and predictable.",
+  "Shared lane or higher vehicle volume, stay visible and predictable.",
   "Approach crossings with extra caution and signal timing in mind.",
   "Mix of bikes and cars; watch for driveways and parked cars.",
 ];
 
 const DANGER: readonly string[] = [
-  "Higher-speed corridor — minimize time here and prefer crossings at signals.",
-  "Busier arterial — merge early and take the lane only when safe.",
-  "Complex intersections or limited protection — proceed carefully.",
+  "Higher-speed corridor, minimize time here and prefer crossings at signals.",
+  "Busier arterial, merge early and take the lane only when safe.",
+  "Complex intersections or limited protection, proceed carefully.",
 ];
 
 const BY_LEVEL = {
