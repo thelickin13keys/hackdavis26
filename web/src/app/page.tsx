@@ -26,8 +26,8 @@ export default function Home() {
     getClientSnapshot,
     getServerSnapshot,
   );
-  const [origin, setOrigin] = useState("Downtown Sacramento, CA");
-  const [destination, setDestination] = useState("UC Davis Memorial Union");
+  const [origin, setOrigin] = useState("UC Davis");
+  const [destination, setDestination] = useState("Woodstock's Pizza Davis");
   const [originPoint, setOriginPoint] = useState<RoutePoint>(ORIGIN);
   const [destinationPoint, setDestinationPoint] =
     useState<RoutePoint>(DESTINATION);
@@ -130,6 +130,7 @@ export default function Home() {
 
       <SidePanel
         routes={visibleRoutes}
+        map={map}
         selectedRouteId={activeRoute.id}
         onSelectRoute={select}
         origin={origin}
@@ -154,6 +155,77 @@ export default function Home() {
         expanded={sheetExpanded}
         onToggleExpanded={() => setSheetExpanded((v) => !v)}
       />
+
+      <RouteReasoningPanel route={activeRoute} routes={visibleRoutes} />
     </main>
+  );
+}
+
+function RouteReasoningPanel({
+  route,
+  routes,
+}: {
+  route: Route;
+  routes: Route[];
+}) {
+  const fastestMin = Math.min(...routes.map((r) => r.durationMin));
+  const safeSegments = route.segments.filter((s) => s.level === "safe").length;
+  const cautionSegments = route.segments.filter(
+    (s) => s.level === "caution",
+  ).length;
+  const dangerSegments = route.segments.filter((s) => s.level === "danger").length;
+  const tradeoff = route.durationMin - fastestMin;
+
+  return (
+    <aside className="pointer-events-none absolute top-5 right-5 z-20 hidden w-[300px] rounded-[20px] border border-[#333] bg-[#111]/95 p-5 shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur lg:block">
+      <p className="type-overline">Why this route</p>
+      <h2 className="mt-2 text-[22px] leading-tight font-semibold text-white">
+        {route.name}
+      </h2>
+      <p className="mt-2 text-[13px] leading-5 text-[#ababab]">
+        {route.score >= 71
+          ? "Prioritizes lower-stress corridors and keeps most of the ride on safer segments."
+          : "Trades some comfort for another corridor, useful when you want to compare options."}
+      </p>
+
+      <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+        <Metric label="Safe" value={safeSegments} tone="text-[#06C167]" />
+        <Metric label="Caution" value={cautionSegments} tone="text-[#F5A623]" />
+        <Metric label="Avoid" value={dangerSegments} tone="text-[#E83B3B]" />
+      </div>
+
+      <div className="mt-5 space-y-3 border-t border-[#2a2a2a] pt-4 text-[13px] text-[#d7d7d7]">
+        <p>
+          <span className="text-white">{route.durationMin} min</span>
+          {tradeoff > 0 ? `, +${tradeoff} min vs fastest` : ", fastest option"}
+        </p>
+        <p>
+          <span className="text-white">{route.distanceMi.toFixed(1)} mi</span>{" "}
+          with a safety score of{" "}
+          <span className="text-white">{route.score}/100</span>.
+        </p>
+      </div>
+    </aside>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-[14px] bg-[#1a1a1a] px-2 py-3">
+      <div className={`text-[20px] leading-none font-semibold ${tone}`}>
+        {value}
+      </div>
+      <div className="mt-1 text-[10px] font-medium text-[#8a8a8a]">
+        {label}
+      </div>
+    </div>
   );
 }

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Map as MapboxMap } from "mapbox-gl";
 
 import type { RoutePoint } from "./types";
 
 type MapboxSearchProps = {
+  map?: MapboxMap | null;
   label: string;
   placeholder: string;
   value: string;
@@ -68,7 +70,7 @@ export function MapboxSearch({
         url.searchParams.set("autocomplete", "true");
         url.searchParams.set("country", "us");
         url.searchParams.set("limit", "5");
-        url.searchParams.set("proximity", "-121.4944,38.5816");
+        url.searchParams.set("proximity", "-121.760891,38.53908");
         url.searchParams.set("types", "address,poi,place,locality,neighborhood");
 
         const response = await fetch(url.toString(), {
@@ -149,7 +151,7 @@ export function MapboxSearch({
       </div>
 
       {open ? (
-        <div className="absolute top-full right-3 left-9 z-50 mt-2 overflow-hidden rounded-[14px] border border-[#333] bg-[#121212] shadow-[0_24px_48px_rgba(0,0,0,0.55)]">
+        <div className="absolute top-full right-3 left-3 z-50 mt-2 overflow-hidden rounded-[14px] border border-[#333] bg-[#121212] shadow-[0_24px_48px_rgba(0,0,0,0.55)]">
           {suggestions.map((feature) => (
             <button
               key={feature.id}
@@ -168,9 +170,6 @@ export function MapboxSearch({
               </span>
             </button>
           ))}
-          <div className="px-4 py-2 text-[11px] text-[#7a7a7a]">
-            Powered by Mapbox
-          </div>
         </div>
       ) : null}
     </div>
