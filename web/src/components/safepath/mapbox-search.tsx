@@ -142,7 +142,7 @@ export function MapboxSearch({
   return (
     <div
       ref={rootRef}
-      className="relative flex items-center gap-3 px-3 py-2.5"
+      className="relative flex items-center gap-3 px-4 py-3.5"
     >
       <span className={`size-2.5 shrink-0 rounded-full ${dotClass}`} />
       <div className="min-w-0 flex-1">

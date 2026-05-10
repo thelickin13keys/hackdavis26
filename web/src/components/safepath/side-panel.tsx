@@ -738,11 +738,11 @@ export function SidePanel({
           DESKTOP: floating glass panel (hidden below lg)
           ════════════════════════════════════════════ */}
       <aside
-        className="hidden lg:flex absolute z-30 flex-row rounded-[24px] overflow-hidden shadow-2xl backdrop-blur-xl bg-[#1c1c1e]/80"
+        className="hidden lg:flex absolute z-30 flex-row rounded-[24px] shadow-2xl backdrop-blur-xl bg-[#1c1c1e]/80"
         style={{ top: "20px", left: "20px", bottom: "20px", width: "380px" }}
       >
-        {/* ── Narrow icon strip ── */}
-        <div className="w-[60px] shrink-0 flex flex-col items-center pt-6 gap-6 border-r border-white/5">
+        {/* ── Narrow icon strip — rounded left corners to match the aside ── */}
+        <div className="w-[60px] shrink-0 flex flex-col items-center pt-6 gap-6 border-r border-white/5 rounded-l-[24px]">
           <button
             type="button"
             className="flex flex-col items-center gap-1"
@@ -760,16 +760,16 @@ export function SidePanel({
         </div>
 
         {/* ── Main scrollable content ── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0">
 
           {/* Title */}
           <div className="shrink-0 px-4 pt-5 pb-1">
             <h1 className="text-white font-bold text-[20px] tracking-tight">StreetBike</h1>
           </div>
 
-          {/* Search inputs */}
-          <div className="shrink-0 px-4 pt-3 pb-3">
-            <div className="rounded-[14px] bg-[#2c2c2e] overflow-hidden">
+          {/* Search inputs — no overflow-hidden so the autocomplete dropdown isn't clipped */}
+          <div className="shrink-0 px-4 pt-3 pb-4">
+            <div className="rounded-[14px] bg-[#2c2c2e]">
               <MapboxSearch
                 dotClass="bg-[#0a84ff]"
                 label="From"
@@ -778,7 +778,7 @@ export function SidePanel({
                 onSelect={onOriginSelect}
                 placeholder="Your location"
               />
-              <div className="mx-3 h-px bg-[#38383a]" />
+              <div className="mx-4 h-px bg-[#38383a]" />
               <MapboxSearch
                 dotClass="ring-2 ring-[#8e8e93] bg-transparent"
                 label="To"
