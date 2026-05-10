@@ -14,6 +14,7 @@ import {
   mapboxInsightBullets,
   mapboxPenaltyForScore,
 } from "./route-enrichment";
+import { fetchRouteCrimeIntel } from "./crime-intel";
 
 const TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_API_KEY ??
@@ -92,9 +93,6 @@ export async function fetchMapboxBikeRoutes(
       const signals = extractMapboxSignals(source.legs, steps);
       const congestion = extractCongestionStats(source.legs);
       const penalty = mapboxPenaltyForScore(signals);
-      const score = Math.round(
-        Math.max(22, Math.min(97, baseScore - penalty)),
-      );
 
       let subtitle = streetSummaryFromSteps(steps);
       if (!subtitle || subtitle === "Bike route - Mapbox directions")
@@ -124,25 +122,37 @@ export async function fetchMapboxBikeRoutes(
         },
       };
 
-      if (linePoints.length >= 2) {
-        const outlook = await fetchRouteWeatherOutlook(linePoints).catch(() => ({
-          lines: [],
-          attribution: "Open-Meteo data unavailable.",
-        }));
-        if (outlook.lines.filter(Boolean).length > 0) {
-          intel = {
-            ...intel,
-            conditions: outlook,
-          };
-        }
+      // Fetch weather and crime data in parallel
+      const [outlook, crimeIntel] = await Promise.all([
+        linePoints.length >= 2
+          ? fetchRouteWeatherOutlook(linePoints).catch(() => ({
+              lines: [],
+              attribution: "Open-Meteo data unavailable.",
+            }))
+          : Promise.resolve({ lines: [], attribution: "" }),
+        fetchRouteCrimeIntel(linePoints).catch(() => null),
+      ]);
+
+      if (outlook.lines.filter(Boolean).length > 0) {
+        intel = { ...intel, conditions: outlook };
       }
+
+      if (crimeIntel && !crimeIntel.outsideCoverage) {
+        intel = { ...intel, crime: crimeIntel };
+      }
+
+      // Apply crime penalty on top of Mapbox road penalty
+      const crimePenalty = crimeIntel?.outsideCoverage ? 0 : (crimeIntel?.scorePenalty ?? 0);
+      const finalScore = Math.round(
+        Math.max(22, Math.min(97, baseScore - penalty - crimePenalty)),
+      );
 
       const result: Route = {
         id: meta.id,
         name: meta.name,
         durationMin: Math.max(1, Math.round(source.duration / 60)),
         distanceMi: source.distance / 1609.344,
-        score,
+        score: finalScore,
         subtitle,
         segments,
         navigationCues: cues.length ? cues : undefined,
