@@ -245,7 +245,7 @@ function worstSafety(
   return "safe";
 }
 
-/** Mapbox publishes traffic + routing, but not roadside weather · Open-Meteo is CC BY 4.0 · no token */
+/** Mapbox publishes traffic + routing, but not roadside weather - Open-Meteo is CC BY 4.0 - no token */
 export async function fetchRouteWeatherOutlook(
   points: RoutePoint[],
 ): Promise<NonNullable<RouteIntel["conditions"]>> {

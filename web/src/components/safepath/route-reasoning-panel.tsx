@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -17,14 +18,58 @@ const MAPBOX_TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_TOKEN ??
   "";
 
+function useLocationPhoto(
+  destinationName: string | undefined,
+  destinationPoint: RoutePoint | undefined,
+): { src: string | null; isMap: boolean } {
+  const [wikiPhoto, setWikiPhoto] = useState<string | null | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    if (!destinationName) {
+      setWikiPhoto(null);
+      return;
+    }
+    setWikiPhoto(undefined);
+    const controller = new AbortController();
+    const query = encodeURIComponent(destinationName.trim());
+    fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${query}`,
+      { signal: controller.signal },
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const src =
+          data?.originalimage?.source ??
+          data?.thumbnail?.source ??
+          null;
+        setWikiPhoto(src);
+      })
+      .catch(() => setWikiPhoto(null));
+    return () => controller.abort();
+  }, [destinationName]);
+
+  const mapSrc =
+    destinationPoint && MAPBOX_TOKEN
+      ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/pin-s-marker+e05252(${destinationPoint.lng},${destinationPoint.lat})/${destinationPoint.lng},${destinationPoint.lat},15,0/360x160@2x?access_token=${MAPBOX_TOKEN}`
+      : null;
+
+  if (wikiPhoto === undefined) return { src: null, isMap: false };
+  if (wikiPhoto) return { src: wikiPhoto, isMap: false };
+  return { src: mapSrc, isMap: true };
+}
+
 
 type RouteReasoningPanelProps = {
   route: Route;
   routes: Route[];
   showDirections: boolean;
   onBackFromDirections: () => void;
+  onStartRoute?: () => void;
   destinationPoint?: RoutePoint;
   destinationName?: string;
+  isLoading?: boolean;
 };
 
 const panelShellClass =
@@ -35,8 +80,10 @@ export function RouteReasoningPanel({
   routes,
   showDirections,
   onBackFromDirections,
+  onStartRoute,
   destinationPoint,
   destinationName,
+  isLoading = false,
 }: RouteReasoningPanelProps) {
   if (showDirections) {
     return (
@@ -57,9 +104,6 @@ export function RouteReasoningPanel({
               Summary
             </button>
           </div>
-          <p className="mt-2 text-[12px] leading-5 text-[#8a8a8a]">
-            From Mapbox cycling directions · use with what you see on the street.
-          </p>
         </div>
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2 pr-0.5 [scrollbar-gutter:stable]">
@@ -68,8 +112,33 @@ export function RouteReasoningPanel({
 
         <div className="mt-4 shrink-0 space-y-1 border-t border-[#2a2a2a] pt-4 text-[13px] text-[#d7d7d7]">
           <p className="text-white">
-            {route.distanceMi.toFixed(1)} mi · {route.durationMin} min estimated
+            {route.distanceMi.toFixed(1)} mi - {route.durationMin} min estimated
           </p>
+        </div>
+      </aside>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <aside className={panelShellClass}>
+        <div className="shrink-0 space-y-3">
+          <div className="h-3 w-24 animate-pulse rounded-full bg-[#2a2a2a]" />
+          <div className="h-5 w-40 animate-pulse rounded-full bg-[#2a2a2a]" />
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-8 animate-pulse rounded-full bg-[#2a2a2a]" />
+            <div className="h-4 w-16 animate-pulse rounded-full bg-[#2a2a2a]" />
+            <div className="h-4 w-16 animate-pulse rounded-full bg-[#2a2a2a]" />
+          </div>
+          <div className="h-[160px] w-full animate-pulse rounded-[12px] bg-[#2a2a2a]" />
+        </div>
+        <div className="mt-4 flex-1 space-y-px overflow-hidden rounded-[14px] border border-[#2a2a2a]">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-center gap-3 border-b border-[#262626] px-4 py-4 last:border-b-0">
+              <div className="h-6 w-6 animate-pulse rounded-full bg-[#2a2a2a]" />
+              <div className="h-4 w-28 animate-pulse rounded-full bg-[#2a2a2a]" />
+            </div>
+          ))}
         </div>
       </aside>
     );
@@ -87,10 +156,10 @@ export function RouteReasoningPanel({
   const cautionFactors = factors.filter((f) => f.level === "caution");
   const dangerFactors = factors.filter((f) => f.level === "danger");
 
-  const destImageUrl =
-    destinationPoint && MAPBOX_TOKEN
-      ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/pin-s-marker+e05252(${destinationPoint.lng},${destinationPoint.lat})/${destinationPoint.lng},${destinationPoint.lat},15,0/360x160@2x?access_token=${MAPBOX_TOKEN}`
-      : null;
+  const { src: destImageUrl, isMap: destImageIsMap } = useLocationPhoto(
+    destinationName,
+    destinationPoint,
+  );
 
   return (
     <aside className={panelShellClass}>
@@ -111,27 +180,28 @@ export function RouteReasoningPanel({
           >
             {letterGrade(route.score)}
           </span>
-          <span className="text-[#404040]">·</span>
+          <span className="text-[#404040]">-</span>
           <span className="text-[#9a9a9a]">{route.durationMin} min</span>
-          <span className="text-[#404040]">·</span>
+          <span className="text-[#404040]">-</span>
           <span className="text-[#9a9a9a]">{route.distanceMi.toFixed(1)} mi</span>
         </div>
 
-        {/* Destination satellite photo */}
+        {/* Destination photo */}
         {destImageUrl ? (
           <div className="overflow-hidden rounded-[12px] border border-[#2a2a2a]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={destImageUrl}
-              alt={destinationName ? `Satellite view near ${destinationName}` : "Destination area"}
+              alt={destinationName ?? "Destination"}
               width={360}
               height={160}
               className="w-full object-cover"
+              style={{ maxHeight: 160 }}
               loading="lazy"
             />
             {destinationName ? (
               <p className="px-3 py-1.5 text-[11px] text-[#6a6a6a]">
-                📍 {destinationName}
+              {"📍" + destinationName}
               </p>
             ) : null}
           </div>
@@ -171,6 +241,19 @@ export function RouteReasoningPanel({
           />
         </Accordion>
       </div>
+
+      {/* ── Pinned Start Route button ── */}
+      {onStartRoute && (
+        <div className="shrink-0 border-t border-[#2a2a2a] pt-3 pb-1">
+          <button
+            type="button"
+            onClick={onStartRoute}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-white text-[14px] font-semibold text-black hover:bg-[#f0f0f0] transition-colors"
+          >
+            Start route · {route.durationMin} min
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
@@ -380,7 +463,7 @@ function ReasonAccordionRow({
         {isEmpty ? (
           <p className="pl-1 text-[12px] text-[#757575]">None on this route.</p>
         ) : (
-          <div className="max-h-[min(22rem,40vh)] overflow-y-auto overflow-x-hidden rounded-md pl-1 pr-0.5 [scrollbar-gutter:stable]">
+          <div className="pl-1 pr-0.5">
             <ul className="list-none space-y-2">
               {factors.map((f, i) => (
                 <li

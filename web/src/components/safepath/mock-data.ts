@@ -1,20 +1,22 @@
 import type { Route, StreetAnalysis } from "./types";
 
 /**
- * Initial route skeleton from UC Davis to Woodstock's Pizza in Davis. Live
- * Mapbox Directions replaces this as soon as the app hydrates.
+ * Initial route skeleton from Golden Gate Park to Pier 39 in San Francisco.
+ * Live Mapbox Directions replaces this as soon as the app hydrates.
  */
 
-export const ORIGIN = { lng: -121.760891, lat: 38.53908 };
-export const DESTINATION = { lng: -121.738991, lat: 38.544777 };
+// Golden Gate Park (Music Concourse)
+export const ORIGIN = { lng: -122.4686, lat: 37.7713 };
+// Pier 39
+export const DESTINATION = { lng: -122.4098, lat: 37.8087 };
 
 export const ROUTES: Route[] = [
   {
     id: "safest",
     name: "Safest route",
-    subtitle: "Well-lit · bike lanes · low traffic",
-    durationMin: 18,
-    distanceMi: 2.4,
+    subtitle: "Well-lit - bike lanes - low traffic",
+    durationMin: 28,
+    distanceMi: 4.8,
     score: 92,
     segments: [
       {
@@ -22,23 +24,24 @@ export const ROUTES: Route[] = [
         level: "safe",
         points: [
           ORIGIN,
-          { lng: -121.7548, lat: 38.5405 },
-          { lng: -121.7492, lat: 38.5424 },
+          { lng: -122.4580, lat: 37.7760 },
+          { lng: -122.4450, lat: 37.7830 },
         ],
       },
       {
         id: "s2",
         level: "caution",
         points: [
-          { lng: -121.7492, lat: 38.5424 },
-          { lng: -121.7444, lat: 38.5439 },
+          { lng: -122.4450, lat: 37.7830 },
+          { lng: -122.4300, lat: 37.7950 },
         ],
       },
       {
         id: "s3",
         level: "safe",
         points: [
-          { lng: -121.7444, lat: 38.5439 },
+          { lng: -122.4300, lat: 37.7950 },
+          { lng: -122.4200, lat: 37.8020 },
           DESTINATION,
         ],
       },
@@ -47,9 +50,9 @@ export const ROUTES: Route[] = [
   {
     id: "balanced",
     name: "Balanced",
-    subtitle: "Mostly bike lanes · 2 caution zones",
-    durationMin: 14,
-    distanceMi: 2.0,
+    subtitle: "Mostly bike lanes - 2 caution zones",
+    durationMin: 22,
+    distanceMi: 4.1,
     score: 71,
     segments: [
       {
@@ -57,30 +60,30 @@ export const ROUTES: Route[] = [
         level: "safe",
         points: [
           ORIGIN,
-          { lng: -121.7552, lat: 38.5389 },
+          { lng: -122.4560, lat: 37.7740 },
         ],
       },
       {
         id: "b2",
         level: "caution",
         points: [
-          { lng: -121.7552, lat: 38.5389 },
-          { lng: -121.7482, lat: 38.5415 },
+          { lng: -122.4560, lat: 37.7740 },
+          { lng: -122.4380, lat: 37.7870 },
         ],
       },
       {
         id: "b3",
         level: "caution",
         points: [
-          { lng: -121.7482, lat: 38.5415 },
-          { lng: -121.7428, lat: 38.5427 },
+          { lng: -122.4380, lat: 37.7870 },
+          { lng: -122.4240, lat: 37.7970 },
         ],
       },
       {
         id: "b4",
         level: "safe",
         points: [
-          { lng: -121.7428, lat: 38.5427 },
+          { lng: -122.4240, lat: 37.7970 },
           DESTINATION,
         ],
       },
@@ -90,8 +93,8 @@ export const ROUTES: Route[] = [
     id: "fastest",
     name: "Fastest",
     subtitle: "Crosses high-speed corridor",
-    durationMin: 11,
-    distanceMi: 1.7,
+    durationMin: 18,
+    distanceMi: 3.6,
     score: 38,
     segments: [
       {
@@ -99,22 +102,22 @@ export const ROUTES: Route[] = [
         level: "caution",
         points: [
           ORIGIN,
-          { lng: -121.7542, lat: 38.5411 },
+          { lng: -122.4480, lat: 37.7780 },
         ],
       },
       {
         id: "f2",
         level: "danger",
         points: [
-          { lng: -121.7542, lat: 38.5411 },
-          { lng: -121.7464, lat: 38.5451 },
+          { lng: -122.4480, lat: 37.7780 },
+          { lng: -122.4260, lat: 37.7980 },
         ],
       },
       {
         id: "f3",
         level: "caution",
         points: [
-          { lng: -121.7464, lat: 38.5451 },
+          { lng: -122.4260, lat: 37.7980 },
           DESTINATION,
         ],
       },
