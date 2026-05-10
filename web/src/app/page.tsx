@@ -51,21 +51,16 @@ export default function Home() {
         // Assign names by role, not by position
         const fastestId = [...sorted].sort((a, b) => a.durationMin - b.durationMin)[0]!.id;
         const safestId = sorted[0]!.id;
+        let altIndex = 1;
         const renamed = sorted.map((r) => {
-          let name: string;
-          if (r.id === safestId) name = "Safest";
-          else if (r.id === fastestId) name = "Fastest";
-          else name = "Balanced";
-          return { ...r, name };
+          if (r.id === safestId) return { ...r, name: "Safest" };
+          if (r.id === fastestId) return { ...r, name: "Fastest" };
+          return { ...r, name: `Alternative ${altIndex++}` };
         });
 
-        // Pad any unfilled slots with mock routes (by ID), cap at 10
-        const realIds = new Set(renamed.map((r) => r.id));
-        const mockPad = ROUTES.filter((m) => !realIds.has(m.id));
-        const merged = [...renamed, ...mockPad].slice(0, 10);
-        setRoutes(merged);
+        setRoutes(renamed);
         setNavigationActive(false);
-        setSelectedRouteId(merged[0]!.id);
+        setSelectedRouteId(renamed[0]!.id);
       })
       .catch((error) => {
         if (cancelled) return;

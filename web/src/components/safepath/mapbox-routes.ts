@@ -153,7 +153,7 @@ export async function fetchMapboxBikeRoutes(
   );
 }
 
-const MAX_ROUTE_COUNT = 10;
+const MAX_ROUTE_COUNT = 4;
 
 async function collectRouteVariants(
   origin: RoutePoint,
