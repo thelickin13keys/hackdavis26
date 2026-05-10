@@ -267,8 +267,15 @@
   max-width: none;
   min-width: 0;
   background: transparent;
+  border-radius: 16px;
   box-shadow: none;
   font-family: inherit;
+}
+.safepath-geocoder .mapboxgl-ctrl-geocoder:focus,
+.safepath-geocoder .mapboxgl-ctrl-geocoder:active,
+.safepath-geocoder .mapboxgl-ctrl-geocoder--input:focus,
+.safepath-geocoder .mapboxgl-ctrl-geocoder--input:active {
+  outline: none !important;
 }
 .safepath-geocoder .mapboxgl-ctrl-geocoder--icon,
 .safepath-geocoder .mapboxgl-ctrl-geocoder--button {
@@ -289,11 +296,15 @@
 }
 .safepath-geocoder .suggestions {
   top: calc(100% + 8px);
+  right: 0;
+  left: var(--safepath-suggestions-left, 0);
+  width: auto;
   overflow: hidden;
   border: 1px solid #333333;
   border-radius: 10px;
   background: #1a1a1a;
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+  z-index: 50 !important;
 }
 .safepath-geocoder .suggestions > li > a {
   color: #ffffff;

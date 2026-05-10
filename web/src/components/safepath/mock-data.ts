@@ -1,13 +1,12 @@
 import type { Route, StreetAnalysis } from "./types";
 
 /**
- * Three demo routes from a Capitol-area origin to the Tower Bridge area in
- * downtown Sacramento (~0.7 mi). Coordinates are real lng/lat so they render
- * on top of the live Mapbox street network.
+ * Initial route skeleton from UC Davis to Woodstock's Pizza in Davis. Live
+ * Mapbox Directions replaces this as soon as the app hydrates.
  */
 
-export const ORIGIN = { lng: -121.4944, lat: 38.5816 };
-export const DESTINATION = { lng: -121.7494, lat: 38.5422 };
+export const ORIGIN = { lng: -121.760891, lat: 38.53908 };
+export const DESTINATION = { lng: -121.738991, lat: 38.544777 };
 
 export const ROUTES: Route[] = [
   {
@@ -22,26 +21,25 @@ export const ROUTES: Route[] = [
         id: "s1",
         level: "safe",
         points: [
-          { lng: -121.4944, lat: 38.5816 },
-          { lng: -121.4944, lat: 38.583 },
-          { lng: -121.4985, lat: 38.583 },
+          ORIGIN,
+          { lng: -121.7548, lat: 38.5405 },
+          { lng: -121.7492, lat: 38.5424 },
         ],
       },
       {
         id: "s2",
         level: "caution",
         points: [
-          { lng: -121.4985, lat: 38.583 },
-          { lng: -121.502, lat: 38.583 },
+          { lng: -121.7492, lat: 38.5424 },
+          { lng: -121.7444, lat: 38.5439 },
         ],
       },
       {
         id: "s3",
         level: "safe",
         points: [
-          { lng: -121.502, lat: 38.583 },
-          { lng: -121.502, lat: 38.5807 },
-          { lng: -121.5066, lat: 38.5807 },
+          { lng: -121.7444, lat: 38.5439 },
+          DESTINATION,
         ],
       },
     ],
@@ -58,32 +56,32 @@ export const ROUTES: Route[] = [
         id: "b1",
         level: "safe",
         points: [
-          { lng: -121.4944, lat: 38.5816 },
-          { lng: -121.4985, lat: 38.5816 },
+          ORIGIN,
+          { lng: -121.7552, lat: 38.5389 },
         ],
       },
       {
         id: "b2",
         level: "caution",
         points: [
-          { lng: -121.4985, lat: 38.5816 },
-          { lng: -121.502, lat: 38.5816 },
+          { lng: -121.7552, lat: 38.5389 },
+          { lng: -121.7482, lat: 38.5415 },
         ],
       },
       {
         id: "b3",
         level: "caution",
         points: [
-          { lng: -121.502, lat: 38.5816 },
-          { lng: -121.502, lat: 38.5807 },
+          { lng: -121.7482, lat: 38.5415 },
+          { lng: -121.7428, lat: 38.5427 },
         ],
       },
       {
         id: "b4",
         level: "safe",
         points: [
-          { lng: -121.502, lat: 38.5807 },
-          { lng: -121.5066, lat: 38.5807 },
+          { lng: -121.7428, lat: 38.5427 },
+          DESTINATION,
         ],
       },
     ],
@@ -100,25 +98,24 @@ export const ROUTES: Route[] = [
         id: "f1",
         level: "caution",
         points: [
-          { lng: -121.4944, lat: 38.5816 },
-          { lng: -121.4944, lat: 38.5805 },
+          ORIGIN,
+          { lng: -121.7542, lat: 38.5411 },
         ],
       },
       {
         id: "f2",
         level: "danger",
         points: [
-          { lng: -121.4944, lat: 38.5805 },
-          { lng: -121.5005, lat: 38.5805 },
+          { lng: -121.7542, lat: 38.5411 },
+          { lng: -121.7464, lat: 38.5451 },
         ],
       },
       {
         id: "f3",
         level: "caution",
         points: [
-          { lng: -121.5005, lat: 38.5805 },
-          { lng: -121.5066, lat: 38.5805 },
-          { lng: -121.5066, lat: 38.5807 },
+          { lng: -121.7464, lat: 38.5451 },
+          DESTINATION,
         ],
       },
     ],
