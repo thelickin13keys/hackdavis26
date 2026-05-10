@@ -1,0 +1,329 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   SafePath Design Tokens — Uber-inspired dark theme
+   ========================================================================== */
+
+@theme inline {
+  /* SafePath base surfaces */
+  --color-base: #000000;
+  --color-surface: #1a1a1a;
+  --color-elevated: #242424;
+  --color-subtle: #2e2e2e;
+
+  /* SafePath text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #ababab;
+  --color-text-disabled: #525252;
+
+  /* SafePath status — color is meaning, not decoration */
+  --color-safe: #06c167;
+  --color-caution: #f5a623;
+  --color-danger: #e83b3b;
+  --color-info: #4a90d9;
+
+  /* shadcn mapping */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Force the SafePath dark palette as the only theme. */
+:root,
+.dark {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: #242424;
+  --secondary-foreground: #ffffff;
+  --muted: #242424;
+  --muted-foreground: #ababab;
+  --accent: #2e2e2e;
+  --accent-foreground: #ffffff;
+  --destructive: #e83b3b;
+  --border: #333333;
+  --input: #242424;
+  --ring: #ffffff;
+  --chart-1: #06c167;
+  --chart-2: #f5a623;
+  --chart-3: #e83b3b;
+  --chart-4: #4a90d9;
+  --chart-5: #ababab;
+  --radius: 0.75rem;
+  --sidebar: #1a1a1a;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #242424;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #333333;
+  --sidebar-ring: #ffffff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+  }
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+  input,
+  textarea {
+    font-size: 16px; /* iOS will not zoom on focus when >= 16px */
+  }
+}
+
+@layer utilities {
+  /* Type scale tokens from DESIGN.md */
+  .type-display {
+    font-size: 28px;
+    line-height: 1.3;
+    font-weight: 700;
+  }
+  .type-h1 {
+    font-size: 22px;
+    line-height: 1.3;
+    font-weight: 700;
+  }
+  .type-h2 {
+    font-size: 17px;
+    line-height: 1.3;
+    font-weight: 600;
+  }
+  .type-h3 {
+    font-size: 15px;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+  .type-body {
+    font-size: 14px;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+  .type-label {
+    font-size: 12px;
+    line-height: 1.4;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+  .type-caption {
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+  }
+  .type-overline {
+    font-size: 10px;
+    line-height: 1.4;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Pulse animation for the "live" pin on the map */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes route-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ==========================================================================
+   Mapbox GL JS — markers and control positioning
+   ========================================================================== */
+
+.sp-marker-origin {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 3px solid #000000;
+  position: relative;
+  pointer-events: none;
+}
+.sp-marker-origin::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 9999px;
+  background: #ffffff;
+  opacity: 0.2;
+  animation: pulse-ring 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+.sp-marker-dest {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #000000;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Tame Mapbox's default control styles to fit the dark theme */
+.mapboxgl-ctrl-attrib.mapboxgl-compact {
+  background: rgba(20, 20, 20, 0.7) !important;
+  color: #ababab;
+  border-radius: 999px;
+}
+.mapboxgl-ctrl-attrib a {
+  color: #ababab !important;
+}
+.mapboxgl-ctrl-attrib-button {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+.mapboxgl-ctrl-logo {
+  filter: brightness(1.2);
+}
+
+.safepath-geocoder .mapboxgl-ctrl-geocoder {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: inherit;
+}
+.safepath-geocoder .mapboxgl-ctrl-geocoder--icon,
+.safepath-geocoder .mapboxgl-ctrl-geocoder--button {
+  display: none;
+}
+.safepath-geocoder .mapboxgl-ctrl-geocoder--input {
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+}
+.safepath-geocoder .mapboxgl-ctrl-geocoder--input::placeholder {
+  color: #525252;
+}
+.safepath-geocoder .suggestions {
+  top: calc(100% + 8px);
+  overflow: hidden;
+  border: 1px solid #333333;
+  border-radius: 10px;
+  background: #1a1a1a;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+}
+.safepath-geocoder .suggestions > li > a {
+  color: #ffffff;
+}
+.safepath-geocoder .suggestions .active > a,
+.safepath-geocoder .suggestions > li > a:hover {
+  background: #242424;
+}
+.safepath-geocoder .mapboxgl-ctrl-geocoder--suggestion-title {
+  color: #ffffff;
+}
+.safepath-geocoder .mapboxgl-ctrl-geocoder--suggestion-address {
+  color: #ababab;
+}
+
+/* On mobile the bottom sheet covers the bottom of the map; lift Mapbox's
+   bottom-anchored controls above the collapsed sheet so the wordmark
+   remains visible per Mapbox terms. */
+@media (max-width: 767px) {
+  .mapboxgl-ctrl-bottom-left,
+  .mapboxgl-ctrl-bottom-right {
+    bottom: calc(48dvh + 8px) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
