@@ -53,7 +53,7 @@ const INTERSECTION_HIT_RADIUS_M = 18;
 // over uncontrolled-crossing routes when both are otherwise comparable.
 const UNPROTECTED_INTERSECTION_PENALTY = 6;
 // Cap so a long route through 10+ unprotected nodes isn't murdered to 20/100.
-const UNPROTECTED_INTERSECTION_PENALTY_CAP = 25;
+const UNPROTECTED_INTERSECTION_PENALTY_CAP = 30;
 // "Especially scary" — complex (5+ legs) AND uncontrolled — gets an extra hit.
 const COMPLEX_UNPROTECTED_BONUS_PENALTY = 4;
 
@@ -298,13 +298,15 @@ function enrichSegment(
     matchedScores.reduce((a, b) => a + b, 0) / matchedScores.length;
   const worstScore = Math.min(...matchedScores);
 
-  // Reclassify the segment level when coverage is solid. We use the worst
-  // score so a single scary block downgrades the whole segment — a segment
-  // is only as safe as its scariest stretch.
+  // Reclassify the segment level when coverage is solid. We use the MEAN
+  // score so a segment that's mostly above 7 still gets the "safe" bucket
+  // even if one sample dips into caution territory. Worst-score is still
+  // surfaced in the stress note so the user can see when there's a sketchy
+  // sub-block within an otherwise-safe segment.
   let nextLevel: SafetyLevel = segment.level;
   let reclassified = false;
   if (coverage >= MIN_COVERAGE_FRACTION) {
-    nextLevel = scoreToLevel(worstScore);
+    nextLevel = scoreToLevel(meanScore);
     reclassified = true;
   }
 

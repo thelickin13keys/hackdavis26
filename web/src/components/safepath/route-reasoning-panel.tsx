@@ -10,7 +10,12 @@ import {
 import { DirectionsList } from "./directions-list";
 import { sanitizeDirectionsLine } from "./mapbox-route-steps";
 import type { Route, RoutePoint, SafetyLevel } from "./types";
-import { letterGrade, levelFromScore, levelStyles } from "./safety";
+import {
+  letterGrade,
+  levelFromScore,
+  levelStyles,
+  scoreFromSegments,
+} from "./safety";
 import { segmentNarrative } from "./segment-copy";
 
 const MAPBOX_TOKEN =
@@ -145,7 +150,11 @@ export function RouteReasoningPanel({
   }
 
   const { factors } = computeVerdict(route);
-  const scoreLevel = levelFromScore(route.score);
+  // Derive everything from the segment composition so color, letter, and
+  // chip styling all agree. (route.score is the upstream blended score and
+  // can disagree with the segment ratio after intersection penalties.)
+  const ratioScore = scoreFromSegments(route.segments);
+  const scoreLevel = levelFromScore(ratioScore);
   const scoreStyle = levelStyles(scoreLevel);
 
   const safeList = narrativesFor(route, "safe");
@@ -173,12 +182,15 @@ export function RouteReasoningPanel({
           </h2>
         </div>
 
-        {/* Grade + stats row */}
+        {/* Letter grade derived from the route's length-weighted safe /
+            caution / danger composition (not the upstream blended score), so
+            an all-safe route reliably scores A+ regardless of how the
+            score got blended on the way in. */}
         <div className="flex items-center gap-3 text-[13px]">
           <span
             className={`font-bold text-[20px] leading-none tracking-tight ${scoreStyle.text}`}
           >
-            {letterGrade(route.score)}
+            {letterGrade(ratioScore)}
           </span>
           <span className="text-[#404040]"></span>
           <span className="text-[#9a9a9a]">{route.durationMin} min</span>
