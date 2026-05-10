@@ -1,4 +1,4 @@
-import type { Route, RoutePoint } from "./types";
+import type { Route, RouteIntel, RoutePoint } from "./types";
 import type { RawDirectionsLeg } from "./mapbox-route-steps";
 import {
   buildSegmentsFromSteps,
@@ -7,6 +7,13 @@ import {
   scoreFromStressSegments,
   streetSummaryFromSteps,
 } from "./mapbox-route-steps";
+import {
+  extractCongestionStats,
+  extractMapboxSignals,
+  fetchRouteWeatherOutlook,
+  mapboxInsightBullets,
+  mapboxPenaltyForScore,
+} from "./route-enrichment";
 
 const TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_API_KEY ??
@@ -30,7 +37,6 @@ type DirectionsResponse = {
 
 type RouteVariant = {
   route: DirectionsRoute;
-  via?: RoutePoint;
 };
 
 /** Display labels · geometry + tiers come from Mapbox Directions steps */
@@ -70,38 +76,84 @@ export async function fetchMapboxBikeRoutes(
     throw new Error("Mapbox Directions returned no routes");
   }
 
-  return variants.map(({ route: source, via }, index) => {
-    const meta = ROUTE_META[index] ?? {
-      id: `route-${index + 1}`,
-      name: `Alternative ${index + 1}`,
-      subtitleHint: "Mapbox cycling route",
-    };
-    const linePoints =
-      source.geometry?.coordinates.map(([lng, lat]) => ({ lng, lat })) ?? [];
+  return Promise.all(
+    variants.map(async ({ route: source }, index) => {
+      const meta = ROUTE_META[index] ?? {
+        id: `route-${index + 1}`,
+        name: `Alternative ${index + 1}`,
+        subtitleHint: "Mapbox cycling route",
+      };
+      const linePoints =
+        source.geometry?.coordinates.map(([lng, lat]) => ({ lng, lat })) ?? [];
 
-    const steps = collectCyclingSteps(source.legs);
-    const segments = buildSegmentsFromSteps(steps, linePoints);
-    const score = scoreFromStressSegments(segments);
+      const steps = collectCyclingSteps(source.legs);
+      const segments = buildSegmentsFromSteps(steps, linePoints);
+      const baseScore = scoreFromStressSegments(segments);
+      const signals = extractMapboxSignals(source.legs, steps);
+      const congestion = extractCongestionStats(source.legs);
+      const penalty = mapboxPenaltyForScore(signals);
+      const score = Math.round(
+        Math.max(22, Math.min(97, baseScore - penalty)),
+      );
 
-    let subtitle = streetSummaryFromSteps(steps);
-    if (!subtitle || subtitle === "Bike route · Mapbox directions")
-      subtitle = meta.subtitleHint;
-    if (via) subtitle = `${subtitle} · alternate corridor`;
+      let subtitle = streetSummaryFromSteps(steps);
+      if (!subtitle || subtitle === "Bike route · Mapbox directions")
+        subtitle = meta.subtitleHint;
 
-    const cues = navigationCuesFromSteps(steps);
+      const cues = navigationCuesFromSteps(steps);
 
-    return {
-      id: meta.id,
-      name: meta.name,
-      durationMin: Math.max(1, Math.round(source.duration / 60)),
-      distanceMi: source.distance / 1609.344,
-      score,
-      subtitle,
-      segments,
-      navigationCues: cues.length ? cues : undefined,
-    };
-  });
+      let intel: RouteIntel | undefined;
+
+      let lines = mapboxInsightBullets(signals);
+      lines = [...new Map(lines.map((l) => [l.trim(), l])).keys()].filter(
+        Boolean,
+      );
+      if (lines.length === 0 && penalty === 0) {
+        lines = [
+          "Directions annotations did not expose extra roadway stats beyond the step text on this corridor.",
+        ];
+      }
+      intel = {
+        mapbox: {
+          lines,
+          scorePenalty: penalty,
+          peakPostedMph: signals.peakPostedMph,
+          motorwayTouches: signals.motorwayTouches,
+          tunnelTouches: signals.tunnelTouches,
+          congestion,
+        },
+      };
+
+      if (linePoints.length >= 2) {
+        const outlook = await fetchRouteWeatherOutlook(linePoints).catch(() => ({
+          lines: [],
+          attribution: "Open-Meteo data unavailable.",
+        }));
+        if (outlook.lines.filter(Boolean).length > 0) {
+          intel = {
+            ...intel,
+            conditions: outlook,
+          };
+        }
+      }
+
+      const result: Route = {
+        id: meta.id,
+        name: meta.name,
+        durationMin: Math.max(1, Math.round(source.duration / 60)),
+        distanceMi: source.distance / 1609.344,
+        score,
+        subtitle,
+        segments,
+        navigationCues: cues.length ? cues : undefined,
+        intel,
+      };
+      return result;
+    }),
+  );
 }
+
+const MAX_ROUTE_COUNT = 10;
 
 async function collectRouteVariants(
   origin: RoutePoint,
@@ -110,21 +162,41 @@ async function collectRouteVariants(
   const variants: RouteVariant[] = [];
   const seen = new Set<string>();
 
+  // Primary call — Mapbox returns up to 3 routes with alternatives=true
   const directRoutes = await requestDirections([origin, destination], true);
   for (const route of directRoutes) {
     addVariant(variants, seen, { route });
   }
 
-  if (variants.length < ROUTE_META.length) {
-    for (const via of buildViaCandidates(origin, destination)) {
-      const [route] = await requestDirections([origin, via, destination], false)
-        .catch(() => []);
-      if (route) addVariant(variants, seen, { route, via });
-      if (variants.length >= ROUTE_META.length) break;
+  // Via-waypoint detour calls — force different corridors by nudging the midpoint
+  const mid: RoutePoint = {
+    lng: (origin.lng + destination.lng) / 2,
+    lat: (origin.lat + destination.lat) / 2,
+  };
+  const latOff = 0.003; // ~333 m
+  const lngOff = 0.003 / Math.cos((mid.lat * Math.PI) / 180);
+
+  const viaPoints: RoutePoint[] = [
+    { lng: mid.lng,                lat: mid.lat + latOff },              // N
+    { lng: mid.lng,                lat: mid.lat - latOff },              // S
+    { lng: mid.lng + lngOff,       lat: mid.lat },                       // E
+    { lng: mid.lng - lngOff,       lat: mid.lat },                       // W
+    { lng: mid.lng + lngOff * 0.6, lat: mid.lat + latOff * 0.6 },       // NE
+    { lng: mid.lng - lngOff * 0.6, lat: mid.lat - latOff * 0.6 },       // SW
+  ];
+
+  const detourResults = await Promise.allSettled(
+    viaPoints.map((via) => requestDirections([origin, via, destination], false)),
+  );
+  for (const result of detourResults) {
+    if (result.status === "fulfilled") {
+      for (const route of result.value) {
+        addVariant(variants, seen, { route });
+      }
     }
   }
 
-  return variants.slice(0, ROUTE_META.length);
+  return variants.slice(0, MAX_ROUTE_COUNT);
 }
 
 async function requestDirections(points: RoutePoint[], alternatives: boolean) {
@@ -138,6 +210,13 @@ async function requestDirections(points: RoutePoint[], alternatives: boolean) {
   url.searchParams.set("geometries", "geojson");
   url.searchParams.set("overview", "full");
   url.searchParams.set("steps", "true");
+  /** Per-segment durations, inferred speeds & posted limits @see annotations */
+  url.searchParams.set(
+    "annotations",
+    "distance,duration,speed,maxspeed,congestion,congestion_numeric",
+  );
+  /** Match Mapbox step model: separate enter vs exit roundabout legs when routing supplies them */
+  url.searchParams.set("roundabout_exits", "true");
   url.searchParams.set("access_token", TOKEN);
 
   const response = await fetch(url.toString());
@@ -178,29 +257,3 @@ function routeSignature(route: DirectionsRoute) {
     .join("|");
 }
 
-function buildViaCandidates(origin: RoutePoint, destination: RoutePoint) {
-  const dx = destination.lng - origin.lng;
-  const dy = destination.lat - origin.lat;
-  const length = Math.hypot(dx, dy) || 1;
-  const offset = Math.min(0.018, Math.max(0.006, length * 0.08));
-  const perp = { lng: -dy / length, lat: dx / length };
-  const midpoint = {
-    lng: (origin.lng + destination.lng) / 2,
-    lat: (origin.lat + destination.lat) / 2,
-  };
-
-  return [
-    {
-      lng: midpoint.lng + perp.lng * offset,
-      lat: midpoint.lat + perp.lat * offset,
-    },
-    {
-      lng: midpoint.lng - perp.lng * offset,
-      lat: midpoint.lat - perp.lat * offset,
-    },
-    {
-      lng: origin.lng + dx * 0.62 + perp.lng * offset * 0.72,
-      lat: origin.lat + dy * 0.62 + perp.lat * offset * 0.72,
-    },
-  ];
-}

@@ -189,7 +189,7 @@ export function MapCanvas({
         map.getCanvas().style.cursor = "";
       });
 
-      // Origin pin — pulsing white dot.
+      // Origin pin pulsing white dot.
       const originEl = document.createElement("div");
       originEl.className = "sp-marker-origin";
       originMarkerRef.current = new mapboxgl.Marker({
@@ -199,7 +199,7 @@ export function MapCanvas({
         .setLngLat([origin.lng, origin.lat])
         .addTo(map);
 
-      // Destination pin — black dot ringed in white (target style).
+      // Destination pin black dot ringed in white (target style).
       const destEl = document.createElement("div");
       destEl.className = "sp-marker-dest";
       destinationMarkerRef.current = new mapboxgl.Marker({
