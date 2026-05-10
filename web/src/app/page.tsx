@@ -167,6 +167,8 @@ export default function Home() {
         navigationCues={activeRoute.navigationCues ?? []}
         onExitNavigation={() => setNavigationActive(false)}
         isLoading={isLoadingRoutes}
+        destinationName={confirmedDestName}
+        destinationPoint={destinationPoint}
       />
 
       <RouteReasoningPanel
