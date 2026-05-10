@@ -261,7 +261,7 @@ function MobileNavTurnCard({ cues }: { cues: NavigationCue[] }) {
   const NxtIcon = nxt ? navIcon(nxt.instruction) : null;
   return (
     <div className="mx-4 mt-safe-top mt-4">
-      <div className="rounded-[20px] bg-[#1c1c1e]/80 backdrop-blur-xl shadow-2xl px-5 py-4">
+      <div className="rounded-[20px] bg-[#1c1c1e]/64 backdrop-blur-xl shadow-2xl px-5 py-4">
         <div className="flex items-center gap-4">
           <CurIcon className="size-10 text-white shrink-0" strokeWidth={2.5} />
           <span className="text-[26px] font-bold text-white leading-tight truncate">
@@ -725,7 +725,7 @@ export function SidePanel({
           DESKTOP: floating glass panel (hidden below lg)
           ════════════════════════════════════════════ */}
       <aside
-        className="hidden lg:flex absolute z-30 flex-row rounded-[24px] shadow-2xl backdrop-blur-xl bg-[#1c1c1e]/80"
+        className="hidden lg:flex absolute z-30 flex-row rounded-[24px] shadow-2xl backdrop-blur-xl bg-[#1c1c1e]/64"
         style={{ top: "20px", left: "20px", bottom: "20px", width: "380px" }}
       >
         {/* ── Narrow icon strip — rounded left corners to match the aside ── */}
@@ -751,7 +751,7 @@ export function SidePanel({
 
           {/* Title */}
           <div className="shrink-0 px-4 pt-5 pb-1">
-            <h1 className="text-white font-bold text-[20px] tracking-tight">StreetBike</h1>
+            <h1 className="text-white font-bold text-[20px] tracking-tight">Aggie Street Smarts</h1>
           </div>
 
           {/* Search inputs — no overflow-hidden so the autocomplete dropdown isn't clipped */}

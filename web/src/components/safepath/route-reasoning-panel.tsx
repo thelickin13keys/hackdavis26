@@ -38,7 +38,7 @@ type RouteReasoningPanelProps = {
 };
 
 const panelShellClass =
-  "absolute top-5 right-5 bottom-5 z-20 hidden min-h-0 w-[min(100%,clamp(296px,30vw,380px))] min-w-[280px] max-w-[calc(100vw-1rem)] flex-col rounded-[24px] bg-[#1c1c1e]/80 p-5 shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:flex";
+  "absolute top-5 right-5 bottom-5 z-20 hidden min-h-0 w-[min(100%,clamp(296px,30vw,380px))] min-w-[280px] max-w-[calc(100vw-1rem)] flex-col rounded-[24px] bg-[#1c1c1e]/64 p-5 shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:flex";
 
 export function RouteReasoningPanel({
   route,

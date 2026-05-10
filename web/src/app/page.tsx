@@ -131,7 +131,18 @@ export default function Home() {
     loadRoutes()
       .then((nextRoutes) => {
         if (cancelled) return;
-        const sorted = [...nextRoutes].sort((a, b) => b.score - a.score);
+
+        // SafePath backend routes have no navigationCues (they come from Mapbox
+        // Directions steps). Propagate cues from the first route that has them
+        // so turn-by-turn always works regardless of which route is selected.
+        const sharedCues = nextRoutes.find((r) => r.navigationCues?.length)?.navigationCues;
+        const routesWithCues = sharedCues
+          ? nextRoutes.map((r) =>
+              r.navigationCues?.length ? r : { ...r, navigationCues: sharedCues },
+            )
+          : nextRoutes;
+
+        const sorted = [...routesWithCues].sort((a, b) => b.score - a.score);
 
         // Assign names by role, not by position
         const fastestId = [...sorted].sort((a, b) => a.durationMin - b.durationMin)[0]!.id;
