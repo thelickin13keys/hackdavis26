@@ -697,17 +697,12 @@ export function SidePanel({
                 ))}
           </div>
 
-          {/* Destination info */}
+          {/* Destination name — only show title, no placeholder boxes */}
           {(destinationName || destination) ? (
             <div className="px-4 pb-6">
-              <h3 className="text-[18px] font-semibold text-white mb-3">
+              <h3 className="text-[18px] font-semibold text-white">
                 {destinationName ?? destination}
               </h3>
-              <div className="grid grid-cols-3 gap-2">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="aspect-square rounded-[12px] bg-[#2c2c2e]" />
-                ))}
-              </div>
             </div>
           ) : null}
         </div>
@@ -791,7 +786,7 @@ export function SidePanel({
           </div>
 
           {/* Route cards (scrollable) */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-2.5 scrollbar-hide">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-1 pb-4 space-y-2.5 scrollbar-hide">
             {isLoading
               ? [...Array(3)].map((_, i) => (
                   <div key={i} className="rounded-[16px] bg-[#2c2c2e] px-4 py-4 space-y-2">
@@ -823,17 +818,12 @@ export function SidePanel({
                   />
                 ))}
 
-            {/* Destination info */}
+            {/* Destination name — only show title, no placeholder boxes */}
             {(destinationName || destination) ? (
               <div className="pt-2 pb-2">
-                <h3 className="text-[18px] font-semibold text-white mb-3">
+                <h3 className="text-[18px] font-semibold text-white">
                   {destinationName ?? destination}
                 </h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="aspect-square rounded-[12px] bg-[#2c2c2e]" />
-                  ))}
-                </div>
               </div>
             ) : null}
           </div>

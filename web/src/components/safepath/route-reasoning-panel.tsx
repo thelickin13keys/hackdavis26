@@ -38,7 +38,7 @@ type RouteReasoningPanelProps = {
 };
 
 const panelShellClass =
-  "absolute top-5 right-5 bottom-5 z-20 hidden min-h-0 w-[min(100%,clamp(296px,30vw,380px))] min-w-[280px] max-w-[calc(100vw-1rem)] flex-col rounded-[20px] border border-[#333] bg-[#111]/95 p-5 shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur lg:flex";
+  "absolute top-5 right-5 bottom-5 z-20 hidden min-h-0 w-[min(100%,clamp(296px,30vw,380px))] min-w-[280px] max-w-[calc(100vw-1rem)] flex-col rounded-[24px] bg-[#1c1c1e]/80 p-5 shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:flex";
 
 export function RouteReasoningPanel({
   route,
@@ -65,7 +65,7 @@ export function RouteReasoningPanel({
             <button
               type="button"
               onClick={onBackFromDirections}
-              className="shrink-0 rounded-[10px] border border-[#444] bg-[#1f1f1f] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#2a2a2a]"
+              className="shrink-0 rounded-[10px] border border-[#3a3a3c] bg-[#2c2c2e] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#38383a]"
             >
               Summary
             </button>
@@ -76,7 +76,7 @@ export function RouteReasoningPanel({
           <DirectionsList cues={route.navigationCues ?? []} />
         </div>
 
-        <div className="mt-4 shrink-0 space-y-1 border-t border-[#2a2a2a] pt-4 text-[13px] text-[#d7d7d7]">
+        <div className="mt-4 shrink-0 space-y-1 border-t border-[#3a3a3c] pt-4 text-[13px] text-[#d7d7d7]">
           <p className="text-white">
             {route.distanceMi.toFixed(1)} mi - {route.durationMin} min estimated
           </p>
@@ -98,9 +98,9 @@ export function RouteReasoningPanel({
           </div>
           <div className="h-[160px] w-full animate-pulse rounded-[12px] bg-[#2a2a2a]" />
         </div>
-        <div className="mt-4 flex-1 space-y-px overflow-hidden rounded-[14px] border border-[#2a2a2a]">
+        <div className="mt-4 flex-1 space-y-px overflow-hidden rounded-[14px] border border-[#3a3a3c] bg-[#2c2c2e]">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3 border-b border-[#262626] px-4 py-4 last:border-b-0">
+            <div key={i} className="flex items-center gap-3 border-b border-[#38383a] px-4 py-4 last:border-b-0">
               <div className="h-6 w-6 animate-pulse rounded-full bg-[#2a2a2a]" />
               <div className="h-4 w-28 animate-pulse rounded-full bg-[#2a2a2a]" />
             </div>
@@ -165,7 +165,7 @@ export function RouteReasoningPanel({
         <Accordion
           multiple
           defaultValue={[]}
-          className="w-full min-w-0 rounded-[14px] border border-[#2a2a2a] bg-[#161616]"
+          className="w-full min-w-0 rounded-[14px] border border-[#3a3a3c] bg-[#2c2c2e]"
         >
           <ReasonAccordionRow
             value="safe"
@@ -197,11 +197,11 @@ export function RouteReasoningPanel({
 
       {/* ── Pinned Start Route button ── */}
       {onStartRoute && (
-        <div className="shrink-0 border-t border-[#2a2a2a] pt-3 pb-1">
+        <div className="shrink-0 border-t border-[#3a3a3c] pt-3 pb-1">
           <button
             type="button"
             onClick={onStartRoute}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-white text-[14px] font-semibold text-black hover:bg-[#f0f0f0] transition-colors"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#14B8A6] text-[15px] font-semibold text-black hover:bg-[#10a090] transition-colors"
           >
             Start route · {route.durationMin} min
           </button>
@@ -421,7 +421,7 @@ function ReasonAccordionRow({
   return (
     <AccordionItem
       value={value}
-      className="border-b border-[#262626] px-3 py-0.5 last:border-b-0"
+      className="border-b border-[#38383a] px-3 py-0.5 last:border-b-0"
     >
       <AccordionTrigger className="rounded-none py-3 text-[#e8e8e8] hover:no-underline">
         <div className="flex min-w-0 w-full items-center gap-3 pr-2">
@@ -475,7 +475,7 @@ function ReasonEntry({
   toneClass: string;
 }) {
   return (
-    <li className="overflow-hidden rounded-lg bg-[#1f1f1f]/80">
+    <li className="overflow-hidden rounded-lg bg-[#38383a]/60">
       {hazard ? (
         <div className="relative aspect-[16/9] bg-black">
           {/* eslint-disable-next-line @next/next/no-img-element */}

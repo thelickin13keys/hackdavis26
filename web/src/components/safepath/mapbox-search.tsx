@@ -172,7 +172,7 @@ export function MapboxSearch({
       </div>
 
       {open ? (
-        <div className="absolute top-full right-3 left-3 z-50 mt-2 overflow-hidden rounded-[14px] border border-[#333] bg-[#121212] shadow-[0_24px_48px_rgba(0,0,0,0.55)]">
+        <div className="absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-[14px] border border-[#3a3a3c] bg-[#2c2c2e] shadow-[0_16px_40px_rgba(0,0,0,0.6)]">
           {suggestions.map((feature) => (
             <button
               key={feature.id}
@@ -181,12 +181,12 @@ export function MapboxSearch({
                 event.preventDefault();
                 selectSuggestion(feature);
               }}
-              className="block w-full border-b border-[#242424] px-4 py-3 text-left last:border-b-0 hover:bg-[#1d1d1d] focus-visible:bg-[#1d1d1d] focus-visible:outline-none"
+              className="block w-full border-b border-[#38383a] px-4 py-3 text-left last:border-b-0 hover:bg-[#38383a] focus-visible:bg-[#38383a] focus-visible:outline-none"
             >
               <span className="block truncate text-[14px] font-semibold text-white">
                 {feature.text ?? feature.place_name}
               </span>
-              <span className="mt-0.5 block truncate text-[12px] text-[#ababab]">
+              <span className="mt-0.5 block truncate text-[12px] text-[#8e8e93]">
                 {feature.place_name ?? "Mapbox result"}
               </span>
             </button>
