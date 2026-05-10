@@ -13,9 +13,9 @@ const CAUTION: readonly string[] = [
 ];
 
 const DANGER: readonly string[] = [
-  "Higher-speed corridor — minimize time here and prefer crossing at signals.",
-  "Busier arterial — consider merging early and taking the full lane if safe.",
-  "Complex intersection geometry or limited protection — proceed carefully.",
+  "Higher-speed corridor — minimize time here and prefer crossings at signals.",
+  "Busier arterial — merge early and take the lane only when safe.",
+  "Complex intersections or limited protection — proceed carefully.",
 ];
 
 const BY_LEVEL = {
@@ -24,7 +24,6 @@ const BY_LEVEL = {
   danger: DANGER,
 } as const;
 
-/** Narration for slice index when building Directions-based segments */
 export function segmentNarrative(level: SafetyLevel, sliceIndex: number): string {
   const pool = BY_LEVEL[level];
   return pool[sliceIndex % pool.length] ?? pool[0];

@@ -1,5 +1,12 @@
-import type { Route, RoutePoint, SafetyLevel } from "./types";
-import { segmentNarrative } from "./segment-copy";
+import type { Route, RoutePoint } from "./types";
+import type { RawDirectionsLeg } from "./mapbox-route-steps";
+import {
+  buildSegmentsFromSteps,
+  collectCyclingSteps,
+  navigationCuesFromSteps,
+  scoreFromStressSegments,
+  streetSummaryFromSteps,
+} from "./mapbox-route-steps";
 
 const TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_API_KEY ??
@@ -13,6 +20,7 @@ type DirectionsRoute = {
     type: "LineString";
     coordinates: [number, number][];
   };
+  legs?: RawDirectionsLeg[];
 };
 
 type DirectionsResponse = {
@@ -25,33 +33,26 @@ type RouteVariant = {
   via?: RoutePoint;
 };
 
+/** Display labels · geometry + tiers come from Mapbox Directions steps */
 const ROUTE_META: Array<{
   id: string;
   name: string;
-  subtitle: string;
-  score: number;
-  levels: SafetyLevel[];
+  subtitleHint: string;
 }> = [
   {
     id: "safest",
     name: "Safest route",
-    subtitle: "Cycling route · lower-stress streets",
-    score: 92,
-    levels: ["safe", "caution", "safe"],
+    subtitleHint: "Cycling route · lower-stress streets",
   },
   {
     id: "balanced",
     name: "Balanced",
-    subtitle: "Direct route · some shared streets",
-    score: 71,
-    levels: ["safe", "caution", "caution"],
+    subtitleHint: "Direct route · some shared streets",
   },
   {
     id: "fastest",
     name: "Alternate",
-    subtitle: "Different corridor · compare tradeoffs",
-    score: 48,
-    levels: ["caution", "danger", "caution"],
+    subtitleHint: "Different corridor · compare tradeoffs",
   },
 ];
 
@@ -72,22 +73,32 @@ export async function fetchMapboxBikeRoutes(
   return variants.map(({ route: source, via }, index) => {
     const meta = ROUTE_META[index] ?? {
       id: `route-${index + 1}`,
-      name: `Alternative ${index}`,
-      subtitle: "Mapbox cycling route",
-      score: Math.max(42, 82 - index * 12),
-      levels: ["safe", "caution", "safe"] as SafetyLevel[],
+      name: `Alternative ${index + 1}`,
+      subtitleHint: "Mapbox cycling route",
     };
-    const points =
+    const linePoints =
       source.geometry?.coordinates.map(([lng, lat]) => ({ lng, lat })) ?? [];
+
+    const steps = collectCyclingSteps(source.legs);
+    const segments = buildSegmentsFromSteps(steps, linePoints);
+    const score = scoreFromStressSegments(segments);
+
+    let subtitle = streetSummaryFromSteps(steps);
+    if (!subtitle || subtitle === "Bike route · Mapbox directions")
+      subtitle = meta.subtitleHint;
+    if (via) subtitle = `${subtitle} · alternate corridor`;
+
+    const cues = navigationCuesFromSteps(steps);
 
     return {
       id: meta.id,
       name: meta.name,
       durationMin: Math.max(1, Math.round(source.duration / 60)),
       distanceMi: source.distance / 1609.344,
-      score: meta.score,
-      subtitle: via ? `${meta.subtitle} · alternate corridor` : meta.subtitle,
-      segments: splitIntoSafetySegments(points, meta.levels),
+      score,
+      subtitle,
+      segments,
+      navigationCues: cues.length ? cues : undefined,
     };
   });
 }
@@ -126,7 +137,7 @@ async function requestDirections(points: RoutePoint[], alternatives: boolean) {
   url.searchParams.set("alternatives", String(alternatives));
   url.searchParams.set("geometries", "geojson");
   url.searchParams.set("overview", "full");
-  url.searchParams.set("steps", "false");
+  url.searchParams.set("steps", "true");
   url.searchParams.set("access_token", TOKEN);
 
   const response = await fetch(url.toString());
@@ -192,31 +203,4 @@ function buildViaCandidates(origin: RoutePoint, destination: RoutePoint) {
       lat: origin.lat + dy * 0.62 + perp.lat * offset * 0.72,
     },
   ];
-}
-
-function splitIntoSafetySegments(points: RoutePoint[], levels: SafetyLevel[]) {
-  if (points.length < 2) {
-    return levels.map((level, index) => ({
-      id: `seg-${index}`,
-      level,
-      points,
-      reason: segmentNarrative(level, index),
-    }));
-  }
-
-  const last = points.length - 1;
-  const cut1 = Math.max(1, Math.floor(last / 3));
-  const cut2 = Math.max(cut1 + 1, Math.floor((last * 2) / 3));
-  const slices = [
-    points.slice(0, cut1 + 1),
-    points.slice(cut1, cut2 + 1),
-    points.slice(cut2),
-  ];
-
-  return levels.map((level, index) => ({
-    id: `seg-${index}`,
-    level,
-    points: slices[index].length >= 2 ? slices[index] : points,
-    reason: segmentNarrative(level, index),
-  }));
 }
