@@ -1,0 +1,1 @@
+- [HackDavis 2026 — Bike Safety Routing](project_overview.md) — citywide Street View + Gemini scoring → NetworkX safety-prioritized routing

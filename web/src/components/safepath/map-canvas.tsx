@@ -29,6 +29,9 @@ type MapCanvasProps = {
   inactiveRoutes?: Route[];
   onSelectRoute?: (id: string) => void;
   onMapReady?: (map: MapboxMap) => void;
+  /** Optional live cyclist position from the Street-View tour. Renders as a
+   *  white-haloed dot when set; hides when null. */
+  cyclistPosition?: RoutePoint | null;
 };
 
 /**
@@ -46,12 +49,14 @@ export function MapCanvas({
   inactiveRoutes = [],
   onSelectRoute,
   onMapReady,
+  cyclistPosition,
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const styleLoadedRef = useRef(false);
   const originMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const destinationMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const cyclistMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
   // Hold the latest select handler in a ref so the click listener attached
   // once at map init always sees the current callback.
@@ -280,6 +285,39 @@ export function MapCanvas({
       map.once("load", apply);
     }
   }, [activeRoute, inactiveRoutes, origin, destination]);
+
+  // Cyclist marker — created/moved when a position is supplied; removed when
+  // the position drops back to null (tour stopped).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!cyclistPosition) {
+      cyclistMarkerRef.current?.remove();
+      cyclistMarkerRef.current = null;
+      return;
+    }
+
+    const lngLat: [number, number] = [cyclistPosition.lng, cyclistPosition.lat];
+    if (!cyclistMarkerRef.current) {
+      const el = document.createElement("div");
+      el.className = "sp-marker-cyclist";
+      // Lucide "bike" icon, inlined so it lives in the DOM marker without
+      // needing React. currentColor lets us pick the stroke via CSS.
+      el.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="18.5" cy="17.5" r="3.5"/>' +
+        '<circle cx="5.5" cy="17.5" r="3.5"/>' +
+        '<circle cx="15" cy="5" r="1"/>' +
+        '<path d="M12 17.5V14l-3-3 4-3 2 3h2"/>' +
+        "</svg>";
+      cyclistMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: "center" })
+        .setLngLat(lngLat)
+        .addTo(map);
+    } else {
+      cyclistMarkerRef.current.setLngLat(lngLat);
+    }
+  }, [cyclistPosition]);
 
   return (
     <div className="safepath-map-shell absolute inset-0 overflow-hidden bg-black">

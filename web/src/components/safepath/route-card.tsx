@@ -36,7 +36,7 @@ export function RouteCard({
         <div className="min-w-0 flex-1">
           <h3 className="type-h3 text-white">{route.name}</h3>
         </div>
-        <SafetyScore score={route.score} />
+        <SafetyScore score={route.score} segments={route.segments} />
       </div>
 
       <div className="mt-3 flex items-center gap-2 text-[12px]">
