@@ -180,9 +180,9 @@ export function RouteReasoningPanel({
           >
             {letterGrade(route.score)}
           </span>
-          <span className="text-[#404040]">-</span>
+          <span className="text-[#404040]"></span>
           <span className="text-[#9a9a9a]">{route.durationMin} min</span>
-          <span className="text-[#404040]">-</span>
+          <span className="text-[#404040]"></span>
           <span className="text-[#9a9a9a]">{route.distanceMi.toFixed(1)} mi</span>
         </div>
 
