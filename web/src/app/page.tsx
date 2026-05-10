@@ -54,13 +54,13 @@ export default function Home() {
     getClientSnapshot,
     getServerSnapshot,
   );
-  const [origin, setOrigin] = useState("UC Davis Memorial Union");
-  const [destination, setDestination] = useState("Davis Food Co-op");
+  const [origin, setOrigin] = useState("8th & F, Davis");
+  const [destination, setDestination] = useState("965 Olive Drive, Davis");
   const [originPoint, setOriginPoint] = useState<RoutePoint>(ORIGIN);
   const [destinationPoint, setDestinationPoint] =
     useState<RoutePoint>(DESTINATION);
   // Tracks the name only after a result is picked — not while typing.
-  const [confirmedDestName, setConfirmedDestName] = useState("Davis Food Co-op");
+  const [confirmedDestName, setConfirmedDestName] = useState("965 Olive Drive, Davis");
   const [map, setMap] = useState<MapboxMap | null>(null);
   const [routes, setRoutes] = useState<Route[]>(ROUTES);
   const [selectedRouteId, setSelectedRouteId] = useState(ROUTES[0].id);
