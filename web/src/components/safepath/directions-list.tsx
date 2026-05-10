@@ -3,7 +3,7 @@
 import type { NavigationCue } from "./types";
 
 function formatLegDistance(meters: number): string {
-  if (meters < 80) return `${Math.round(meters)} m`;
+  if (meters < 80) return `${Math.round(meters)} mi`;
   const mi = meters / 1609.344;
   return mi >= 10 ? `${mi.toFixed(1)} mi` : `${mi.toFixed(2)} mi`;
 }

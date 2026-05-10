@@ -6,9 +6,8 @@ import {
   useMemo,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Navigation, Shield } from "lucide-react";
+import { Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { MapboxSearch } from "./mapbox-search";
 import { DirectionsList } from "./directions-list";
 import { RouteCard } from "./route-card";
@@ -81,6 +80,17 @@ export function SidePanel({
       return 0;
     });
   }, [routes, sortBy]);
+
+  function handleSortChange(key: SortKey) {
+    setSortBy(key);
+    const top = [...routes].sort((a, b) => {
+      if (key === "safety")   return b.score - a.score;
+      if (key === "time")     return a.durationMin - b.durationMin;
+      if (key === "distance") return a.distanceMi - b.distanceMi;
+      return 0;
+    })[0];
+    if (top) onSelectRoute(top.id);
+  }
 
   // Drag-to-expand on mobile.
   const dragStart = useRef<number | null>(null);
@@ -181,24 +191,6 @@ export function SidePanel({
         </div>
       ) : null}
 
-      {/* Cautious mode */}
-      <div className="mx-4 mt-3 flex shrink-0 items-center justify-between gap-3 rounded-[10px] border border-[#333] bg-[#0f0f0f] px-3 py-2.5 lg:mx-6">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Shield className="size-4 shrink-0 text-[#06C167]" aria-hidden />
-          <div className="min-w-0">
-            <p className="type-h3 text-white">Cautious mode</p>
-            <p className="type-caption mt-0.5 truncate">
-              Avoids unsafe roads
-            </p>
-          </div>
-        </div>
-        <Switch
-          checked={cautiousMode}
-          onCheckedChange={onCautiousModeChange}
-          className="shrink-0 data-[state=checked]:bg-[#06C167]"
-          aria-label="Cautious mode"
-        />
-      </div>
 
       {/* Sort toggle */}
       <div className="mx-4 mt-3 shrink-0 lg:mx-6">
@@ -207,7 +199,7 @@ export function SidePanel({
             <button
               key={key}
               type="button"
-              onClick={() => setSortBy(key)}
+              onClick={() => handleSortChange(key)}
               className={[
                 "flex-1 rounded-[6px] py-1.5 text-[12px] font-medium transition-colors",
                 sortBy === key
