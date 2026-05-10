@@ -129,8 +129,8 @@ export default function Home() {
 
   return (
     <main className="relative h-dvh w-svw overflow-hidden bg-black">
-      {/* Map: full bleed on mobile; on desktop, shifted right by the 320px panel. */}
-      <div className="absolute inset-0 lg:left-[320px]">
+      {/* Map: full bleed — the sidebar panel floats over it as a glass layer */}
+      <div className="absolute inset-0">
         <MapCanvas
           activeRoute={activeRoute}
           origin={originPoint}
