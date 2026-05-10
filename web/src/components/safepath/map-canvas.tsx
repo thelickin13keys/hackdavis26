@@ -78,8 +78,7 @@ export function MapCanvas({
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      // High-contrast navigation basemap with a pitched camera for the 3D
-      // route-planning feel. This stays visible in the mobile top viewport.
+      // Cycling nav style used before Mapbox Standard + night preset looked darker on route.
       style: "mapbox://styles/mapbox/navigation-night-v1",
       center: [origin.lng, origin.lat],
       zoom: 15.2,
@@ -88,6 +87,7 @@ export function MapCanvas({
       bearing: -28,
       antialias: true,
       cooperativeGestures: false,
+      projection: { name: "globe" },
     });
     mapRef.current = map;
     onMapReadyRef.current?.(map);
@@ -282,7 +282,7 @@ export function MapCanvas({
   }, [activeRoute, inactiveRoutes, origin, destination]);
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-black">
+    <div className="safepath-map-shell absolute inset-0 overflow-hidden bg-black">
       <div ref={containerRef} className="safepath-mapbox-live h-full w-full" />
     </div>
   );

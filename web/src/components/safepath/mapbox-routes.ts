@@ -1,4 +1,5 @@
 import type { Route, RoutePoint, SafetyLevel } from "./types";
+import { segmentNarrative } from "./segment-copy";
 
 const TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_API_KEY ??
@@ -199,6 +200,7 @@ function splitIntoSafetySegments(points: RoutePoint[], levels: SafetyLevel[]) {
       id: `seg-${index}`,
       level,
       points,
+      reason: segmentNarrative(level, index),
     }));
   }
 
@@ -215,5 +217,6 @@ function splitIntoSafetySegments(points: RoutePoint[], levels: SafetyLevel[]) {
     id: `seg-${index}`,
     level,
     points: slices[index].length >= 2 ? slices[index] : points,
+    reason: segmentNarrative(level, index),
   }));
 }

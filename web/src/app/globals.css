@@ -245,21 +245,41 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
-
-/* Tame Mapbox's default control styles to fit the dark theme */
-.mapboxgl-ctrl-attrib.mapboxgl-compact {
-  background: rgba(20, 20, 20, 0.7) !important;
-  color: #ababab;
-  border-radius: 999px;
+.safepath-map-shell .mapboxgl-ctrl-logo {
+  display: none !important;
 }
-.mapboxgl-ctrl-attrib a {
+
+.safepath-map-shell .mapboxgl-ctrl-group {
+  background: rgb(26 26 26 / 0.95) !important;
+  border: 1px solid #383838 !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.safepath-map-shell .mapboxgl-ctrl-group button {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.safepath-map-shell .mapboxgl-ctrl-group button:hover {
+  background: #323232 !important;
+}
+
+/* Tame compact attribution chip (still shows Mapbox + OSM credits) */
+.safepath-map-shell .mapboxgl-ctrl-top-right .mapboxgl-ctrl-attrib.mapboxgl-compact {
+  background: rgb(20 20 20 / 0.78) !important;
+  margin: 8px !important;
+  border-radius: 999px !important;
+  border: 1px solid #333333 !important;
+}
+
+.safepath-map-shell .mapboxgl-ctrl-attrib a {
   color: #ababab !important;
 }
-.mapboxgl-ctrl-attrib-button {
-  background-color: rgba(255, 255, 255, 0.85) !important;
-}
-.mapboxgl-ctrl-logo {
-  filter: brightness(1.2);
+
+.safepath-map-shell .mapboxgl-ctrl-attrib-button {
+  background-color: rgb(242 242 242 / 0.14) !important;
 }
 
 .safepath-geocoder .mapboxgl-ctrl-geocoder {
@@ -320,12 +340,11 @@
   color: #ababab;
 }
 
-/* On mobile the bottom sheet covers the bottom of the map; lift Mapbox's
-   bottom-anchored controls above the collapsed sheet so the wordmark
-   remains visible per Mapbox terms. */
+/* On mobile the bottom sheet covers map chrome; lift any bottom-anchored
+   controls above the collapsed sheet. */
 @media (max-width: 767px) {
-  .mapboxgl-ctrl-bottom-left,
-  .mapboxgl-ctrl-bottom-right {
+  .safepath-map-shell .mapboxgl-ctrl-bottom-left,
+  .safepath-map-shell .mapboxgl-ctrl-bottom-right {
     bottom: calc(48dvh + 8px) !important;
   }
 }

@@ -5,7 +5,6 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import type { Map as MapboxMap } from "mapbox-gl";
 import { Navigation, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -15,7 +14,6 @@ import type { Route, RoutePoint } from "./types";
 
 type SidePanelProps = {
   routes: Route[];
-  map: MapboxMap | null;
   selectedRouteId: string;
   onSelectRoute: (id: string) => void;
   origin: string;
@@ -40,7 +38,6 @@ type SidePanelProps = {
  */
 export function SidePanel({
   routes,
-  map,
   selectedRouteId,
   onSelectRoute,
   origin,
@@ -117,7 +114,6 @@ export function SidePanel({
       <div className="shrink-0 px-4 pt-3 lg:px-6 lg:pt-6">
         <div className="rounded-[10px] border border-[#333] bg-[#0f0f0f]">
           <MapboxSearch
-            map={map}
             dotClass="bg-white"
             label="From"
             value={origin}
@@ -127,7 +123,6 @@ export function SidePanel({
           />
           <div className="mx-3 h-px bg-[#262626]" />
           <MapboxSearch
-            map={map}
             dotClass="bg-transparent ring-2 ring-white"
             label="To"
             value={destination}

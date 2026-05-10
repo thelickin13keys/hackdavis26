@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Map as MapboxMap } from "mapbox-gl";
 
 import type { RoutePoint } from "./types";
 
 type MapboxSearchProps = {
-  map?: MapboxMap | null;
   label: string;
   placeholder: string;
   value: string;
@@ -44,6 +42,26 @@ export function MapboxSearch({
   const [loading, setLoading] = useState(false);
   const selectedValueRef = useRef(value);
   const suppressSuggestionsRef = useRef(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => {
+      const root = rootRef.current;
+      if (!root?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", close, true);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("pointerdown", close, true);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
 
   useEffect(() => {
     const trimmed = value.trim();
@@ -122,7 +140,10 @@ export function MapboxSearch({
   };
 
   return (
-    <div className="relative flex items-center gap-3 px-3 py-2.5">
+    <div
+      ref={rootRef}
+      className="relative flex items-center gap-3 px-3 py-2.5"
+    >
       <span className={`size-2.5 shrink-0 rounded-full ${dotClass}`} />
       <div className="min-w-0 flex-1">
         <span className="type-caption mb-1 block">{label}</span>
