@@ -6,6 +6,8 @@ export type RouteSegment = {
   id: string;
   level: SafetyLevel;
   points: RoutePoint[];
+  /** Narrative shown in “Why this route” accordion */
+  reason?: string;
 };
 
 export type Route = {
