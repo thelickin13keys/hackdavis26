@@ -27,21 +27,25 @@ export default function Home() {
     getClientSnapshot,
     getServerSnapshot,
   );
-  const [origin, setOrigin] = useState("UC Davis");
-  const [destination, setDestination] = useState("Woodstock's Pizza Davis");
+  const [origin, setOrigin] = useState("Golden Gate Park");
+  const [destination, setDestination] = useState("Pier 39");
   const [originPoint, setOriginPoint] = useState<RoutePoint>(ORIGIN);
   const [destinationPoint, setDestinationPoint] =
     useState<RoutePoint>(DESTINATION);
+  // Tracks the name only after a result is picked — not while typing.
+  const [confirmedDestName, setConfirmedDestName] = useState("Pier 39");
   const [map, setMap] = useState<MapboxMap | null>(null);
   const [routes, setRoutes] = useState<Route[]>(ROUTES);
   const [selectedRouteId, setSelectedRouteId] = useState(ROUTES[0].id);
   const [cautiousMode, setCautiousMode] = useState(true);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [navigationActive, setNavigationActive] = useState(false);
+  const [isLoadingRoutes, setIsLoadingRoutes] = useState(true);
 
   useEffect(() => {
     if (!mounted) return;
     let cancelled = false;
+    setIsLoadingRoutes(true);
 
     fetchMapboxBikeRoutes(originPoint, destinationPoint)
       .then((nextRoutes) => {
@@ -51,9 +55,10 @@ export default function Home() {
         // Assign names by role, not by position
         const fastestId = [...sorted].sort((a, b) => a.durationMin - b.durationMin)[0]!.id;
         const safestId = sorted[0]!.id;
+        const safestIsFastest = safestId === fastestId;
         let altIndex = 1;
         const renamed = sorted.map((r) => {
-          if (r.id === safestId) return { ...r, name: "Safest" };
+          if (r.id === safestId) return { ...r, name: safestIsFastest ? "Safest & Fastest" : "Safest" };
           if (r.id === fastestId) return { ...r, name: "Fastest" };
           return { ...r, name: `Alternative ${altIndex++}` };
         });
@@ -61,10 +66,12 @@ export default function Home() {
         setRoutes(renamed);
         setNavigationActive(false);
         setSelectedRouteId(renamed[0]!.id);
+        setIsLoadingRoutes(false);
       })
       .catch((error) => {
         if (cancelled) return;
         console.error(error);
+        setIsLoadingRoutes(false);
         toast("Mapbox routing unavailable", {
           description:
             error instanceof Error
@@ -109,6 +116,7 @@ export default function Home() {
     ({ label, point }: { label: string; point: RoutePoint }) => {
       setNavigationActive(false);
       setDestination(label);
+      setConfirmedDestName(label);
       setDestinationPoint(point);
       map?.flyTo({ center: [point.lng, point.lat], zoom: 14.5 });
     },
@@ -152,17 +160,13 @@ export default function Home() {
           }
           setCautiousMode(next);
         }}
-        onStartRoute={() => {
-          setNavigationActive(true);
-          toast("Starting route", {
-            description: `Heading to ${destination} via ${activeRoute.name.toLowerCase()}.`,
-          });
-        }}
+        onStartRoute={() => setNavigationActive(true)}
         expanded={sheetExpanded}
         onToggleExpanded={() => setSheetExpanded((v) => !v)}
         navigationActive={navigationActive}
         navigationCues={activeRoute.navigationCues ?? []}
         onExitNavigation={() => setNavigationActive(false)}
+        isLoading={isLoadingRoutes}
       />
 
       <RouteReasoningPanel
@@ -170,8 +174,10 @@ export default function Home() {
         routes={visibleRoutes}
         showDirections={navigationActive}
         onBackFromDirections={() => setNavigationActive(false)}
+        onStartRoute={() => setNavigationActive(true)}
         destinationPoint={destinationPoint}
-        destinationName={destination}
+        destinationName={confirmedDestName}
+        isLoading={isLoadingRoutes}
       />
     </main>
   );

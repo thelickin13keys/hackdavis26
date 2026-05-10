@@ -39,7 +39,7 @@ type RouteVariant = {
   route: DirectionsRoute;
 };
 
-/** Display labels · geometry + tiers come from Mapbox Directions steps */
+/** Display labels - geometry + tiers come from Mapbox Directions steps */
 const ROUTE_META: Array<{
   id: string;
   name: string;
@@ -48,17 +48,17 @@ const ROUTE_META: Array<{
   {
     id: "safest",
     name: "Safest route",
-    subtitleHint: "Cycling route · lower-stress streets",
+    subtitleHint: "Cycling route - lower-stress streets",
   },
   {
     id: "balanced",
     name: "Balanced",
-    subtitleHint: "Direct route · some shared streets",
+    subtitleHint: "Direct route - some shared streets",
   },
   {
     id: "fastest",
     name: "Alternate",
-    subtitleHint: "Different corridor · compare tradeoffs",
+    subtitleHint: "Different corridor - compare tradeoffs",
   },
 ];
 
@@ -97,7 +97,7 @@ export async function fetchMapboxBikeRoutes(
       );
 
       let subtitle = streetSummaryFromSteps(steps);
-      if (!subtitle || subtitle === "Bike route · Mapbox directions")
+      if (!subtitle || subtitle === "Bike route - Mapbox directions")
         subtitle = meta.subtitleHint;
 
       const cues = navigationCuesFromSteps(steps);

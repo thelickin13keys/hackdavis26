@@ -16,9 +16,9 @@ import type { NavigationCue, Route, RoutePoint } from "./types";
 type SortKey = "safety" | "time" | "distance";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "safety",   label: "Safety"   },
-  { key: "time",     label: "Time"     },
-  { key: "distance", label: "Distance" },
+  { key: "safety",   label: "Safest"   },
+  { key: "time",     label: "Fastest"  },
+  { key: "distance", label: "Shortest" },
 ];
 
 type SidePanelProps = {
@@ -39,6 +39,7 @@ type SidePanelProps = {
   navigationActive: boolean;
   navigationCues: NavigationCue[];
   onExitNavigation: () => void;
+  isLoading?: boolean;
 };
 
 /**
@@ -66,6 +67,7 @@ export function SidePanel({
   navigationActive,
   navigationCues,
   onExitNavigation,
+  isLoading = false,
 }: SidePanelProps) {
   const selected =
     routes.find((r) => r.id === selectedRouteId) ?? routes[0];
@@ -215,14 +217,33 @@ export function SidePanel({
 
       {/* Route cards (scrollable) */}
       <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 pt-3 pb-3 scrollbar-hide lg:px-6">
-        {sortedRoutes.map((r) => (
-          <RouteCard
-            key={r.id}
-            route={r}
-            selected={r.id === selectedRouteId}
-            onSelect={() => onSelectRoute(r.id)}
-          />
-        ))}
+        {isLoading
+          ? [...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className="rounded-[12px] border-2 border-[#333] bg-[#0f0f0f] p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="h-4 w-24 animate-pulse rounded-full bg-[#2a2a2a]" />
+                  <div className="h-6 w-20 animate-pulse rounded-full bg-[#2a2a2a]" />
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="h-3 w-3 animate-pulse rounded-full bg-[#2a2a2a]" />
+                  <div className="h-3 w-12 animate-pulse rounded-full bg-[#2a2a2a]" />
+                  <div className="h-3 w-20 animate-pulse rounded-full bg-[#2a2a2a]" />
+                  <div className="ml-auto h-3 w-10 animate-pulse rounded-full bg-[#2a2a2a]" />
+                </div>
+                <div className="mt-2.5 h-1 w-full animate-pulse rounded-full bg-[#2a2a2a]" />
+              </div>
+            ))
+          : sortedRoutes.map((r) => (
+              <RouteCard
+                key={r.id}
+                route={r}
+                selected={r.id === selectedRouteId}
+                onSelect={() => onSelectRoute(r.id)}
+              />
+            ))}
       </div>
 
       {/* Pinned CTA */}
@@ -235,7 +256,7 @@ export function SidePanel({
           className="h-12 w-full rounded-[10px] bg-white text-[15px] font-semibold text-black hover:bg-[#f0f0f0]"
         >
           <Navigation className="mr-2 size-4" aria-hidden />
-          Start route · {selected.durationMin} min
+          Start route - {selected.durationMin} min
         </Button>
       </div>
     </aside>
