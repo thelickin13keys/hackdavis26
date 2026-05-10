@@ -9,7 +9,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
-  Navigation,
   ShieldCheck,
   TrendingUp,
   Route as RouteIcon,
@@ -23,10 +22,8 @@ import {
   MapPin,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { MapboxSearch } from "./mapbox-search";
 import { DirectionsList } from "./directions-list";
-import { RouteCard } from "./route-card";
 import type { NavigationCue, Route, RoutePoint } from "./types";
 import { computeVerdict, narrativesFor } from "./route-reasoning-panel";
 
@@ -414,6 +411,113 @@ function useIOSSheet(defaultSnap: SnapPoint = "peek") {
   return { snap, setSnap, sheetStyle, onPointerDown, onPointerMove, onPointerUp };
 }
 
+// ─── Segment widths helper (for desktop route bar) ───────────────────────────
+
+function computeSegmentWidths(route: Route): string[] {
+  const lengths = route.segments.map((seg) =>
+    seg.points.reduce((acc, p, idx, arr) => {
+      if (idx === 0) return 0;
+      const prev = arr[idx - 1]!;
+      const meanLat = ((p.lat + prev.lat) / 2) * (Math.PI / 180);
+      const dx = (p.lng - prev.lng) * Math.cos(meanLat) * 111_000;
+      const dy = (p.lat - prev.lat) * 111_000;
+      return acc + Math.hypot(dx, dy);
+    }, 0),
+  );
+  const total = lengths.reduce((a, b) => a + b, 0) || 1;
+  return lengths.map((l) => `${((l / total) * 100).toFixed(4)}%`);
+}
+
+function segmentBarColor(level: Route["segments"][number]["level"]) {
+  if (level === "safe") return "bg-[#06C167]";
+  if (level === "caution") return "bg-[#F5A623]";
+  return "bg-[#E83B3B]";
+}
+
+// ─── Desktop route card ───────────────────────────────────────────────────────
+
+function DesktopRouteCard({
+  route,
+  selected,
+  onSelect,
+  onStart,
+}: {
+  route: Route;
+  selected: boolean;
+  onSelect: () => void;
+  onStart: () => void;
+}) {
+  const Icon = getMobileIcon(route.name);
+  const color = getMobileIconColor(route.name);
+  const widths = computeSegmentWidths(route);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onSelect();
+      }}
+      aria-pressed={selected}
+      className={[
+        "w-full rounded-[16px] bg-[#2c2c2e] overflow-hidden cursor-pointer",
+        "transition-shadow duration-200",
+        selected ? "ring-1 ring-[#14B8A6]/60" : "",
+      ].join(" ")}
+    >
+      <div className="px-4 pt-4 pb-3">
+        {/* Name row */}
+        <div className="flex items-center gap-2 mb-1.5">
+          <Icon className="size-[18px] shrink-0" style={{ color }} />
+          <span className="font-semibold text-white text-[16px] leading-tight">
+            {route.name}
+          </span>
+        </div>
+
+        {/* Subtitle */}
+        {route.subtitle ? (
+          <p className="text-[#8e8e93] text-[13px] mb-3 leading-snug">
+            {route.subtitle}
+          </p>
+        ) : null}
+
+        {/* Stats + Start */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[#8e8e93] text-[13px]">
+            <Clock className="size-3.5 shrink-0" />
+            <span>
+              {route.durationMin} min&nbsp;•&nbsp;{route.distanceMi.toFixed(1)} mi
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStart();
+            }}
+            className="shrink-0 rounded-full bg-[#14B8A6] px-5 py-2 text-[14px] font-semibold text-black hover:bg-[#10a090] active:opacity-80 transition-colors"
+          >
+            Start
+          </button>
+        </div>
+      </div>
+
+      {/* Safety bar */}
+      <div className="mx-4 mb-3 flex h-[5px] overflow-hidden rounded-full bg-black/30">
+        {route.segments.map((seg, i) => (
+          <div
+            key={`${seg.id}-${i}`}
+            className={["h-full shrink-0 grow-0", segmentBarColor(seg.level)].join(" ")}
+            style={{ width: widths[i] }}
+            aria-hidden
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function SidePanel({
@@ -631,103 +735,108 @@ export function SidePanel({
       </aside>
 
       {/* ════════════════════════════════════════════
-          DESKTOP: docked 320px left rail (hidden below lg)
+          DESKTOP: floating glass panel (hidden below lg)
           ════════════════════════════════════════════ */}
       <aside
-        className={[
-          "hidden lg:flex absolute z-30 flex-col bg-[#1a1a1a]",
-          "inset-y-0 left-0 w-[320px] border-r border-[#333]",
-        ].join(" ")}
+        className="hidden lg:flex absolute z-30 flex-row rounded-[24px] overflow-hidden shadow-2xl backdrop-blur-xl bg-[#1c1c1e]/80"
+        style={{ top: "20px", left: "20px", bottom: "20px", width: "380px" }}
       >
-
-        {/* Search inputs */}
-        <div className="shrink-0 px-6 pt-6">
-          <div className="rounded-[10px] border border-[#333] bg-[#0f0f0f]">
-            <MapboxSearch
-              dotClass="bg-white"
-              label="From"
-              value={origin}
-              onTextChange={onOriginChange}
-              onSelect={onOriginSelect}
-              placeholder="Current location"
-            />
-            <div className="mx-3 h-px bg-[#262626]" />
-            <MapboxSearch
-              dotClass="bg-transparent ring-2 ring-white"
-              label="To"
-              value={destination}
-              onTextChange={onDestinationChange}
-              onSelect={onDestinationSelect}
-              placeholder="Search destination"
-            />
-          </div>
-        </div>
-
-
-        {/* Sort toggle */}
-        <div className="mx-6 mt-3 shrink-0">
-          <div className="flex rounded-[8px] border border-[#333] bg-[#0f0f0f] p-0.5">
-            {SORT_OPTIONS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handleSortChange(key)}
-                className={[
-                  "flex-1 rounded-[6px] py-1.5 text-[12px] font-medium transition-colors",
-                  sortBy === key
-                    ? "bg-[#2a2a2a] text-white"
-                    : "text-[#6a6a6a] hover:text-[#aaa]",
-                ].join(" ")}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Route cards (scrollable) */}
-        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-6 pt-3 pb-3 scrollbar-hide">
-          {isLoading
-            ? [...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-[12px] border-2 border-[#333] bg-[#0f0f0f] p-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="h-4 w-24 animate-pulse rounded-full bg-[#2a2a2a]" />
-                    <div className="h-6 w-20 animate-pulse rounded-full bg-[#2a2a2a]" />
-                  </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="h-3 w-3 animate-pulse rounded-full bg-[#2a2a2a]" />
-                    <div className="h-3 w-12 animate-pulse rounded-full bg-[#2a2a2a]" />
-                    <div className="h-3 w-20 animate-pulse rounded-full bg-[#2a2a2a]" />
-                    <div className="ml-auto h-3 w-10 animate-pulse rounded-full bg-[#2a2a2a]" />
-                  </div>
-                  <div className="mt-2.5 h-1 w-full animate-pulse rounded-full bg-[#2a2a2a]" />
-                </div>
-              ))
-            : sortedRoutes.map((r) => (
-                <RouteCard
-                  key={r.id}
-                  route={r}
-                  selected={r.id === selectedRouteId}
-                  onSelect={() => onSelectRoute(r.id)}
-                />
-              ))}
-        </div>
-
-        {/* Pinned CTA */}
-        <div
-          className="shrink-0 border-t border-[#222] bg-[#1a1a1a] px-6 pt-3"
-          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
-        >
-          <Button
-            onClick={onStartRoute}
-            className="h-12 w-full rounded-[10px] bg-white text-[15px] font-semibold text-black hover:bg-[#f0f0f0]"
+        {/* ── Narrow icon strip ── */}
+        <div className="w-[60px] shrink-0 flex flex-col items-center pt-6 gap-6 border-r border-white/5">
+          <button
+            type="button"
+            className="flex flex-col items-center gap-1"
           >
-            <Navigation className="mr-2 size-4" aria-hidden />
-            Start route - {selected.durationMin} min
-          </Button>
+            <Bike className="size-6 text-[#14B8A6]" />
+            <span className="text-[10px] font-medium text-[#14B8A6]">Bike</span>
+          </button>
+          <button
+            type="button"
+            className="flex flex-col items-center gap-1"
+          >
+            <TriangleAlert className="size-6 text-[#8e8e93]" />
+            <span className="text-[10px] font-medium text-[#8e8e93]">Report</span>
+          </button>
+        </div>
+
+        {/* ── Main scrollable content ── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+          {/* Title */}
+          <div className="shrink-0 px-4 pt-5 pb-1">
+            <h1 className="text-white font-bold text-[20px] tracking-tight">StreetBike</h1>
+          </div>
+
+          {/* Search inputs */}
+          <div className="shrink-0 px-4 pt-3 pb-3">
+            <div className="rounded-[14px] bg-[#2c2c2e] overflow-hidden">
+              <MapboxSearch
+                dotClass="bg-[#0a84ff]"
+                label="From"
+                value={origin}
+                onTextChange={onOriginChange}
+                onSelect={onOriginSelect}
+                placeholder="Your location"
+              />
+              <div className="mx-3 h-px bg-[#38383a]" />
+              <MapboxSearch
+                dotClass="ring-2 ring-[#8e8e93] bg-transparent"
+                label="To"
+                value={destination}
+                onTextChange={onDestinationChange}
+                onSelect={onDestinationSelect}
+                placeholder="Search destination"
+              />
+            </div>
+          </div>
+
+          {/* Route cards (scrollable) */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-2.5 scrollbar-hide">
+            {isLoading
+              ? [...Array(3)].map((_, i) => (
+                  <div key={i} className="rounded-[16px] bg-[#2c2c2e] px-4 py-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="size-[18px] rounded-full bg-[#3a3a3c] animate-pulse" />
+                      <div className="h-4 w-28 rounded-full bg-[#3a3a3c] animate-pulse" />
+                    </div>
+                    <div className="h-3 w-40 rounded-full bg-[#3a3a3c] animate-pulse" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-16 rounded-full bg-[#3a3a3c] animate-pulse" />
+                        <div className="h-3 w-12 rounded-full bg-[#3a3a3c] animate-pulse" />
+                      </div>
+                      <div className="h-8 w-16 rounded-full bg-[#3a3a3c] animate-pulse" />
+                    </div>
+                    <div className="h-[5px] w-full rounded-full bg-[#3a3a3c] animate-pulse" />
+                  </div>
+                ))
+              : sortedRoutes.map((r) => (
+                  <DesktopRouteCard
+                    key={r.id}
+                    route={r}
+                    selected={r.id === selectedRouteId}
+                    onSelect={() => onSelectRoute(r.id)}
+                    onStart={() => {
+                      onSelectRoute(r.id);
+                      onStartRoute();
+                    }}
+                  />
+                ))}
+
+            {/* Destination info */}
+            {(destinationName || destination) ? (
+              <div className="pt-2 pb-2">
+                <h3 className="text-[18px] font-semibold text-white mb-3">
+                  {destinationName ?? destination}
+                </h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="aspect-square rounded-[12px] bg-[#2c2c2e]" />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </aside>
     </>
