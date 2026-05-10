@@ -1,14 +1,14 @@
 import type { Route, StreetAnalysis } from "./types";
 
 /**
- * Initial route skeleton from Golden Gate Park to Pier 39 in San Francisco.
- * Live Mapbox Directions replaces this as soon as the app hydrates.
+ * Initial route skeleton inside the Davis bbox we've actually scored.
+ * Live SafePath routing replaces this as soon as the app hydrates.
  */
 
-// Golden Gate Park (Music Concourse)
-export const ORIGIN = { lng: -122.4686, lat: 37.7713 };
-// Pier 39
-export const DESTINATION = { lng: -122.4098, lat: 37.8087 };
+// UC Davis Memorial Union
+export const ORIGIN = { lng: -121.7494, lat: 38.5421 };
+// Davis Food Co-op
+export const DESTINATION = { lng: -121.7421, lat: 38.5485 };
 
 export const ROUTES: Route[] = [
   {

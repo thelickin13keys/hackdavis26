@@ -15,6 +15,33 @@ import { RouteReasoningPanel } from "@/components/safepath/route-reasoning-panel
 import { SidePanel } from "@/components/safepath/side-panel";
 import { DESTINATION, ORIGIN, ROUTES } from "@/components/safepath/mock-data";
 import { fetchMapboxBikeRoutes } from "@/components/safepath/mapbox-routes";
+import { fetchSafePathBikeRoutes } from "@/components/safepath/safepath-routes";
+import { enrichRoutesWithSafetyData } from "@/components/safepath/safepath-enrichment";
+
+// Toggle Mapbox-Directions variants alongside our backend's safety-Dijkstra'd
+// routes. Set NEXT_PUBLIC_ENABLE_MAPBOX_ROUTES=false in .env.local to drop
+// Mapbox entirely (backend routing only). Defaults to enabled.
+const ENABLE_MAPBOX_ROUTES = (() => {
+  const v = (process.env.NEXT_PUBLIC_ENABLE_MAPBOX_ROUTES ?? "true").toLowerCase();
+  return v !== "false" && v !== "0" && v !== "no";
+})();
+
+// Extra safety-lambda values to ask the backend for. Each one runs an
+// additional Dijkstra at that λ, producing a variant that's more willing to
+// detour around low-score edges. Higher λ = safer but longer.
+//   λ ≈ 0.5 → matches env's default SAFETY_LAMBDA (the existing "safe" route)
+//   λ ≈ 1.5 → up to ~2.5x detour to dodge a score-1 edge ("extra-safe")
+//   λ ≈ 3.0 → up to ~4x detour ("max-safe")
+//   λ ≈ 6.0 → up to ~7x detour ("ultra-safe", essentially-any-detour-goes)
+// Empty list (or "off") disables — only the default safe + fast routes come back.
+const EXTRA_SAFETY_LAMBDAS = (() => {
+  const raw = (process.env.NEXT_PUBLIC_EXTRA_SAFETY_LAMBDAS ?? "1.5,3.0").trim();
+  if (!raw || raw.toLowerCase() === "off" || raw === "0") return [];
+  return raw
+    .split(",")
+    .map((s) => Number.parseFloat(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+})();
 import type { Route, RoutePoint } from "@/components/safepath/types";
 
 const subscribeToClientHydration = () => () => {};
@@ -27,13 +54,13 @@ export default function Home() {
     getClientSnapshot,
     getServerSnapshot,
   );
-  const [origin, setOrigin] = useState("Golden Gate Park");
-  const [destination, setDestination] = useState("Pier 39");
+  const [origin, setOrigin] = useState("UC Davis Memorial Union");
+  const [destination, setDestination] = useState("Davis Food Co-op");
   const [originPoint, setOriginPoint] = useState<RoutePoint>(ORIGIN);
   const [destinationPoint, setDestinationPoint] =
     useState<RoutePoint>(DESTINATION);
   // Tracks the name only after a result is picked — not while typing.
-  const [confirmedDestName, setConfirmedDestName] = useState("Pier 39");
+  const [confirmedDestName, setConfirmedDestName] = useState("Davis Food Co-op");
   const [map, setMap] = useState<MapboxMap | null>(null);
   const [routes, setRoutes] = useState<Route[]>(ROUTES);
   const [selectedRouteId, setSelectedRouteId] = useState(ROUTES[0].id);
@@ -47,7 +74,59 @@ export default function Home() {
     let cancelled = false;
     setIsLoadingRoutes(true);
 
-    fetchMapboxBikeRoutes(originPoint, destinationPoint)
+    // Routing strategy: pull from our backend + (optionally) Mapbox, then
+    // enrich + sort by score.
+    //   * fetchSafePathBikeRoutes (POST /route): our safety-Dijkstra'd safest
+    //     path + distance-Dijkstra'd fastest path (1 or 2 routes).
+    //   * fetchMapboxBikeRoutes: 2-4 cycling variants. Toggled by the
+    //     NEXT_PUBLIC_ENABLE_MAPBOX_ROUTES env var so the demo can compare
+    //     "backend only" vs "stacked" without code changes.
+    //   * enrichRoutesWithSafetyData: applies per-edge scoring and the
+    //     unprotected-intersection penalty uniformly to every variant so
+    //     the sort is fair across sources.
+    // Either source failing doesn't sink the page — we keep whatever loaded.
+    const loadRoutes = async (): Promise<Route[]> => {
+      const tasks: Promise<Route[]>[] = [
+        fetchSafePathBikeRoutes(originPoint, destinationPoint, {
+          extraLambdas: EXTRA_SAFETY_LAMBDAS,
+        }),
+      ];
+      if (ENABLE_MAPBOX_ROUTES) {
+        tasks.push(fetchMapboxBikeRoutes(originPoint, destinationPoint));
+      }
+      const settled = await Promise.allSettled(tasks);
+      const [backendResult, mapboxResult] = settled;
+      const backendRoutes =
+        backendResult.status === "fulfilled" ? backendResult.value : [];
+      const mapboxRoutes =
+        mapboxResult && mapboxResult.status === "fulfilled"
+          ? mapboxResult.value
+          : [];
+      if (backendResult.status === "rejected") {
+        console.warn("SafePath /route unavailable", backendResult.reason);
+      }
+      if (mapboxResult && mapboxResult.status === "rejected") {
+        console.warn("Mapbox routes unavailable", mapboxResult.reason);
+      }
+      const combined = [...backendRoutes, ...mapboxRoutes];
+      if (combined.length === 0) {
+        throw (
+          backendResult.status === "rejected"
+            ? backendResult.reason
+            : mapboxResult && mapboxResult.status === "rejected"
+            ? mapboxResult.reason
+            : new Error("No routes available")
+        );
+      }
+      try {
+        return await enrichRoutesWithSafetyData(combined);
+      } catch (err) {
+        console.warn("SafePath enrichment unavailable, using base data", err);
+        return combined;
+      }
+    };
+
+    loadRoutes()
       .then((nextRoutes) => {
         if (cancelled) return;
         const sorted = [...nextRoutes].sort((a, b) => b.score - a.score);
@@ -72,7 +151,7 @@ export default function Home() {
         if (cancelled) return;
         console.error(error);
         setIsLoadingRoutes(false);
-        toast("Mapbox routing unavailable", {
+        toast("Routing unavailable", {
           description:
             error instanceof Error
               ? error.message

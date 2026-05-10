@@ -85,7 +85,17 @@ def scores_geojson() -> dict:
 
 @app.get("/intersections")
 def intersections_geojson() -> dict:
-    """All scored intersections as GeoJSON Points."""
+    """All intersections (degree>=3) as GeoJSON Points, including the
+    classification fields the frontend needs to penalize unprotected crossings.
+
+    Properties:
+      node_id            — OSM node id
+      degree             — count of bikeable legs
+      intersection_type  — 't' | 'y' | 'four_way' | 'complex' | null
+      osm_control        — 'traffic_signals' | 'stop' | 'give_way' | 'mini_roundabout' | … | null
+      gemini_control     — 'signal' | 'all_way_stop' | 'uncontrolled' | … | null
+      score              — Gemini-derived 1-10 (null if not photo-scored)
+    """
     with connect(settings.db_path) as conn:
         rows = fetch_all_intersections(conn)
     features = [
@@ -95,6 +105,9 @@ def intersections_geojson() -> dict:
             "properties": {
                 "node_id": r["node_id"],
                 "degree": r["degree"],
+                "intersection_type": r["intersection_type"],
+                "osm_control": r["osm_control"],
+                "gemini_control": r["gemini_control"],
                 "score": r["score"],
             },
         }
@@ -108,6 +121,13 @@ class RouteRequest(BaseModel):
     start_lon: float
     end_lat: float
     end_lon: float
+    # Additional safety-lambda values to run Dijkstra at. Each one produces a
+    # variant route in `variants` with cost_safe = length × (1 + λ × (10−score)/9)
+    # plus the configured intersection penalty. Higher λ = more willing to
+    # detour around low-score edges. The default `safe` variant uses
+    # SAFETY_LAMBDA from env (typically 0.5); pass e.g. [1.5, 3.0] here to get
+    # progressively-safer alternatives.
+    extra_lambdas: list[float] | None = None
 
 
 @app.post("/route")
@@ -115,9 +135,22 @@ def route(req: RouteRequest) -> dict:
     g = load_graph()
     safe = route_path(g, req.start_lat, req.start_lon, req.end_lat, req.end_lon, "cost_safe")
     fast = route_path(g, req.start_lat, req.start_lon, req.end_lat, req.end_lon, "cost_fast")
+    variants: list[dict] = []
+    for lam in req.extra_lambdas or []:
+        edges = route_path(
+            g, req.start_lat, req.start_lon, req.end_lat, req.end_lon, float(lam),
+        )
+        variants.append(
+            {
+                "lambda": float(lam),
+                "edges": [e.__dict__ for e in edges],
+                "summary": route_summary(edges),
+            }
+        )
     return {
         "safe": {"edges": [e.__dict__ for e in safe], "summary": route_summary(safe)},
         "fast": {"edges": [e.__dict__ for e in fast], "summary": route_summary(fast)},
+        "variants": variants,
     }
 
 
