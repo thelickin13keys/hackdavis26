@@ -9,6 +9,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.config import settings
@@ -25,6 +26,7 @@ from app.scoring.geocoding import geocode
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 app = FastAPI(title="SafeBike Davis", version="0.2.0")
 app.add_middleware(
@@ -42,6 +44,15 @@ def _startup() -> None:
         load_graph()
     except Exception as exc:  # noqa: BLE001
         log.warning("Routing graph not yet available: %s", exc)
+
+
+# Serve the standalone demo UI at /demo/. Resolved relative to this file so it
+# works whether uvicorn is launched from backend/ or the repo root.
+_DEMO_DIR = Path(__file__).resolve().parents[2] / "demo"
+if _DEMO_DIR.is_dir():
+    app.mount("/demo", StaticFiles(directory=str(_DEMO_DIR), html=True), name="demo")
+else:
+    log.warning("Demo dir not found at %s; /demo will 404", _DEMO_DIR)
 
 
 @app.get("/health")
@@ -210,6 +221,9 @@ async def demo_walk(req: WalkRequest) -> StreamingResponse:
                     "length_m": e.length_m,
                     "score": e.score,
                     "intersection_score": e.intersection_score,
+                    # 'gemini' = scored from photos; 'heuristic' = derived from
+                    # OSM tags + leg geometry; null = not an intersection.
+                    "intersection_source": e.intersection_source,
                     "geometry": e.geometry,
                     "image_path": sample_image,
                     "hazards": hazards,

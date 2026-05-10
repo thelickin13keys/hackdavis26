@@ -48,11 +48,22 @@ CREATE TABLE IF NOT EXISTS edge_scores (
 
 -- Intersection scoring (degree>=3 OSM nodes). Score how scary the intersection
 -- itself is to traverse — distinct from the edge-segment scoring.
+--
+-- Three "type" fields:
+--   * intersection_type — geometric shape: 't', 'y', 'four_way', 'complex'
+--   * osm_control       — raw OSM tag on the node: 'traffic_signals', 'stop',
+--                          'give_way', 'crossing', 'mini_roundabout', or NULL
+--   * gemini_control    — what Gemini thought the control was after seeing the
+--                          4 cardinal images (signal / stop / all_way_stop /
+--                          uncontrolled / yield / signal_with_bike_phase / ...)
 CREATE TABLE IF NOT EXISTS intersections (
     node_id INTEGER PRIMARY KEY,
     lat REAL NOT NULL,
     lon REAL NOT NULL,
     degree INTEGER NOT NULL,
+    intersection_type TEXT,
+    osm_control TEXT,
+    gemini_control TEXT,
     images_json TEXT,
     score INTEGER,
     hazards_json TEXT,
@@ -63,10 +74,22 @@ CREATE TABLE IF NOT EXISTS intersections (
 """
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, col_def: str) -> None:
+    """Idempotent ALTER TABLE ADD COLUMN — SQLite can't do IF NOT EXISTS until 3.35,
+    so we check PRAGMA table_info first."""
+    info = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    if column not in {row[1] for row in info}:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+
+
 def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        # Migrations for DBs created before these columns existed.
+        _ensure_column(conn, "intersections", "intersection_type", "TEXT")
+        _ensure_column(conn, "intersections", "osm_control", "TEXT")
+        _ensure_column(conn, "intersections", "gemini_control", "TEXT")
 
 
 @contextmanager
@@ -156,17 +179,29 @@ def upsert_sample(
 
 
 def upsert_intersection_meta(
-    conn: sqlite3.Connection, node_id: int, lat: float, lon: float, degree: int
+    conn: sqlite3.Connection,
+    node_id: int,
+    lat: float,
+    lon: float,
+    degree: int,
+    intersection_type: str | None = None,
+    osm_control: str | None = None,
 ) -> None:
-    """Insert intersection metadata if missing; preserve existing scoring."""
+    """Insert intersection metadata if missing; preserve existing scoring.
+    Type and control fields are optional — only updated when supplied so that
+    re-running the network extraction doesn't clobber Gemini's control assessment."""
     conn.execute(
         """
-        INSERT INTO intersections (node_id, lat, lon, degree)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO intersections (node_id, lat, lon, degree, intersection_type, osm_control)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(node_id) DO UPDATE SET
-            lat = excluded.lat, lon = excluded.lon, degree = excluded.degree
+            lat = excluded.lat,
+            lon = excluded.lon,
+            degree = excluded.degree,
+            intersection_type = COALESCE(excluded.intersection_type, intersection_type),
+            osm_control = COALESCE(excluded.osm_control, osm_control)
         """,
-        (node_id, lat, lon, degree),
+        (node_id, lat, lon, degree, intersection_type, osm_control),
     )
 
 
@@ -178,12 +213,14 @@ def upsert_intersection_score(
     hazards: list | None,
     reasons: list | None,
     raw_response: dict | None,
+    gemini_control: str | None = None,
 ) -> None:
     conn.execute(
         """
         UPDATE intersections SET
             images_json = ?,
             score = ?,
+            gemini_control = COALESCE(?, gemini_control),
             hazards_json = ?,
             reasons_json = ?,
             raw_response_json = ?,
@@ -193,6 +230,7 @@ def upsert_intersection_score(
         (
             json.dumps(images),
             score,
+            gemini_control,
             json.dumps(hazards) if hazards is not None else None,
             json.dumps(reasons) if reasons is not None else None,
             json.dumps(raw_response) if raw_response is not None else None,
@@ -213,6 +251,59 @@ def recompute_edge_scores(conn: sqlite3.Connection) -> int:
         """
     )
     return cur.rowcount
+
+
+# OSM highway tag → default safety score. These cover infrastructure that's
+# inherently off-street and therefore safe regardless of what Street View shows
+# (and Street View usually shows nothing because there's no road for the SV car).
+# A multi-token tag like "residential,cycleway" gets the highest match.
+HIGHWAY_DEFAULT_SCORES = {
+    "cycleway": 10,    # dedicated separated bike infrastructure
+    "path": 9,         # shared-use path (Davis greenbelt network)
+    "footway": 8,      # shared with pedestrians
+    "pedestrian": 7,   # plaza / shared zone
+    "living_street": 7,  # very low-speed residential
+}
+
+
+def _default_score_for_highway(highway: str | None) -> int | None:
+    if not highway:
+        return None
+    best: int | None = None
+    for token in highway.split(","):
+        s = HIGHWAY_DEFAULT_SCORES.get(token.strip())
+        if s is not None and (best is None or s > best):
+            best = s
+    return best
+
+
+def infer_unscored_edge_scores(conn: sqlite3.Connection) -> int:
+    """For edges with no Gemini-derived score but a highway tag that implies
+    inherent off-street safety (cycleway, path, footway, etc.), insert a default
+    score so the router can prefer them and the heatmap renders them safely.
+    Marked with sample_count=0 so the frontend can tell measured vs inferred."""
+    rows = conn.execute(
+        """
+        SELECT e.edge_id, e.highway
+        FROM edges e LEFT JOIN edge_scores s ON s.edge_id = e.edge_id
+        WHERE s.edge_id IS NULL
+        """
+    ).fetchall()
+    n = 0
+    for r in rows:
+        score = _default_score_for_highway(r["highway"])
+        if score is None:
+            continue
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO edge_scores
+                (edge_id, mean_score, sample_count, updated_at)
+            VALUES (?, ?, 0, CURRENT_TIMESTAMP)
+            """,
+            (r["edge_id"], float(score)),
+        )
+        n += 1
+    return n
 
 
 def already_scored_edges(conn: sqlite3.Connection) -> set[str]:
@@ -261,9 +352,34 @@ def fetch_intersection_scores(conn: sqlite3.Connection) -> dict[int, float]:
     return {r["node_id"]: float(r["score"]) for r in rows}
 
 
+def fetch_intersection_routing_data(conn: sqlite3.Connection) -> dict[int, dict]:
+    """All intersections with the fields the router needs: Gemini score (if any),
+    geometric type, OSM control tag, degree. Used to compute an effective score
+    for every intersection — not just the few we paid Gemini for."""
+    rows = conn.execute(
+        """
+        SELECT node_id, degree, intersection_type, osm_control, score
+        FROM intersections
+        """
+    ).fetchall()
+    return {
+        r["node_id"]: {
+            "degree": r["degree"],
+            "intersection_type": r["intersection_type"],
+            "osm_control": r["osm_control"],
+            "gemini_score": r["score"],  # may be None
+        }
+        for r in rows
+    }
+
+
 def fetch_all_intersections(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute(
-        "SELECT node_id, lat, lon, degree, score FROM intersections"
+        """
+        SELECT node_id, lat, lon, degree, intersection_type, osm_control,
+               gemini_control, score
+        FROM intersections
+        """
     ).fetchall()
     return [
         {
@@ -271,6 +387,9 @@ def fetch_all_intersections(conn: sqlite3.Connection) -> list[dict]:
             "lat": r["lat"],
             "lon": r["lon"],
             "degree": r["degree"],
+            "intersection_type": r["intersection_type"],
+            "osm_control": r["osm_control"],
+            "gemini_control": r["gemini_control"],
             "score": r["score"],
         }
         for r in rows
@@ -324,8 +443,8 @@ def fetch_edge_detail(conn: sqlite3.Connection, edge_id: str) -> dict | None:
 def fetch_intersection_detail(conn: sqlite3.Connection, node_id: int) -> dict | None:
     row = conn.execute(
         """
-        SELECT node_id, lat, lon, degree, images_json, score,
-               hazards_json, reasons_json
+        SELECT node_id, lat, lon, degree, intersection_type, osm_control,
+               gemini_control, images_json, score, hazards_json, reasons_json
         FROM intersections WHERE node_id = ?
         """,
         (node_id,),
@@ -337,6 +456,9 @@ def fetch_intersection_detail(conn: sqlite3.Connection, node_id: int) -> dict | 
         "lat": row["lat"],
         "lon": row["lon"],
         "degree": row["degree"],
+        "intersection_type": row["intersection_type"],
+        "osm_control": row["osm_control"],
+        "gemini_control": row["gemini_control"],
         "images": json.loads(row["images_json"]) if row["images_json"] else [],
         "score": row["score"],
         "hazards": json.loads(row["hazards_json"]) if row["hazards_json"] else [],

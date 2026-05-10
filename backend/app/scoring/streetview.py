@@ -6,18 +6,27 @@ Two endpoints:
 
 We always check metadata first to avoid paying for blank "no imagery" tiles
 and to dedupe by pano_id (so two samples that resolve to the same pano share one image).
+
+UNIQUE FEATURE: Temporal Infrastructure Tracking
+- Fetches historical Street View imagery to track bike infrastructure changes over time
+- Compares "before/after" to quantify safety improvements
+- Shows evolution of bike lanes, signals, pavement quality
 """
 
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from pathlib import Path
+from datetime import datetime
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import settings
+
+log = logging.getLogger(__name__)
 
 METADATA_URL = "https://maps.googleapis.com/maps/api/streetview/metadata"
 STATIC_URL = "https://maps.googleapis.com/maps/api/streetview"
@@ -36,13 +45,24 @@ class PanoMetadata:
     date: str | None  # YYYY-MM
 
 
+@dataclass
+class TemporalPano:
+    """Represents a Street View panorama at a specific point in time."""
+    pano_id: str
+    lat: float
+    lon: float
+    date: str  # YYYY-MM
+    image_path: Path | None = None
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
-def metadata(client: httpx.Client, lat: float, lon: float, radius_m: int = 50) -> PanoMetadata | None:
+def metadata(client: httpx.Client, lat: float, lon: float, radius_m: int | None = None) -> PanoMetadata | None:
+    radius = radius_m if radius_m is not None else settings.streetview_radius_m
     resp = client.get(
         METADATA_URL,
         params={
             "location": f"{lat},{lon}",
-            "radius": radius_m,
+            "radius": radius,
             "source": SOURCE,
             "key": settings.google_maps_api_key,
         },
@@ -50,7 +70,14 @@ def metadata(client: httpx.Client, lat: float, lon: float, radius_m: int = 50) -
     )
     resp.raise_for_status()
     data = resp.json()
-    if data.get("status") != "OK":
+    status = data.get("status")
+    if status != "OK":
+        # ZERO_RESULTS / NOT_FOUND just mean no nearby pano — quiet. Anything else
+        # (REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST) is a config or quota
+        # problem we want surfaced loudly, not silently swallowed as "no image".
+        if status not in ("ZERO_RESULTS", "NOT_FOUND"):
+            err = data.get("error_message") or "(no error_message)"
+            log.error("Street View metadata %s: %s", status, err)
         return None
     loc = data.get("location") or {}
     return PanoMetadata(
