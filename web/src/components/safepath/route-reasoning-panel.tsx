@@ -258,14 +258,14 @@ export function RouteReasoningPanel({
   );
 }
 
-type FactorLevel = "safe" | "caution" | "danger";
+export type FactorLevel = "safe" | "caution" | "danger";
 
-type DecisionFactor = {
+export type DecisionFactor = {
   detail: string;
   level: FactorLevel;
 };
 
-function computeVerdict(route: Route): {
+export function computeVerdict(route: Route): {
   factors: DecisionFactor[];
 } {
   const factors: DecisionFactor[] = [];
@@ -354,12 +354,24 @@ function computeVerdict(route: Route): {
     });
   }
 
+  // Crime — only surface when there are actual incidents to report
+  const crime = route.intel?.crime;
+  if (crime && !crime.outsideCoverage && crime.violentCount > 0) {
+    const label = crime.violentCategories.length > 0
+      ? crime.violentCategories.join(", ")
+      : "violent offenses";
+    factors.push({
+      detail: `${crime.violentCount} violent incident${crime.violentCount === 1 ? "" : "s"} nearby`,
+      level: crime.level,
+    });
+  }
+
   return { factors };
 }
 
 
 
-function narrativesFor(route: Route, level: SafetyLevel): string[] {
+export function narrativesFor(route: Route, level: SafetyLevel): string[] {
   const out: string[] = [];
   let ordinal = 0;
   for (const seg of route.segments) {

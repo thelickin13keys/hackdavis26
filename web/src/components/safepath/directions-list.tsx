@@ -39,7 +39,7 @@ export function DirectionsList({ cues }: { cues: NavigationCue[] }) {
               <p className="text-[14px] leading-snug text-white">
                 {cue.instruction}
               </p>
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+              <p className="mt-1 text-[11px] font-medium tracking-wide text-[#737373]">
                 {formatLegDistance(cue.distanceM)}
                 {" - ~"}
                 {formatDuration(cue.durationSec)}

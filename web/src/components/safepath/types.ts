@@ -44,6 +44,18 @@ export type RouteIntel = {
       detail: string;
     }>;
   };
+  crime?: {
+    totalIncidents: number;
+    violentCount: number;
+    topCategories: string[];
+    violentCategories: string[];
+    scorePenalty: number;
+    lines: string[];
+    level: "safe" | "caution" | "danger";
+    attribution: string;
+    outsideCoverage: boolean;
+    city?: string;
+  };
 };
 
 export type Route = {
