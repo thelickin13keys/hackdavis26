@@ -697,14 +697,6 @@ export function SidePanel({
                 ))}
           </div>
 
-          {/* Destination name — only show title, no placeholder boxes */}
-          {(destinationName || destination) ? (
-            <div className="px-4 pb-6">
-              <h3 className="text-[18px] font-semibold text-white">
-                {destinationName ?? destination}
-              </h3>
-            </div>
-          ) : null}
         </div>
 
         {/* Bottom tab bar */}
@@ -818,14 +810,6 @@ export function SidePanel({
                   />
                 ))}
 
-            {/* Destination name — only show title, no placeholder boxes */}
-            {(destinationName || destination) ? (
-              <div className="pt-2 pb-2">
-                <h3 className="text-[18px] font-semibold text-white">
-                  {destinationName ?? destination}
-                </h3>
-              </div>
-            ) : null}
           </div>
         </div>
       </aside>
