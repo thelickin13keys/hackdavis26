@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SafePath — Safer routes, every ride",
+  title: "Aggie Street Smarts — Safer routes, every ride",
   description:
     "AI-analyzed bike routes for cyclists who prioritize safety. Color-coded streets, real-time street view analysis, cautious-mode routing.",
 };

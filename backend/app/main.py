@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-app = FastAPI(title="SafeBike Davis", version="0.2.0")
+app = FastAPI(title="Aggie Street Smarts", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
